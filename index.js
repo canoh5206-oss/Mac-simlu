@@ -1,28 +1,52 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-const KANAL_ID = '1519410661237461044'; // Kanal ID'n
-
 client.on('messageCreate', async (message) => {
     if (message.content === '!macbaslat') {
-        let evSahibi = "Anadolu FK";
-        let deplasman = "Shadow Wolves FC";
-        let evG = 0, depG = 0;
-
-        const msg = await message.channel.send(`🏟️ **Reality League Başlıyor!**\n${evSahibi} vs ${deplasman}`);
-
         let dakika = 0;
-        const mac = setInterval(async () => {
-            dakika += 30;
-            if (dakika <= 90) {
-                if (Math.random() > 0.5) { evG++; } else { depG++; }
-                await msg.edit(`⚽ **Dakika ${dakika}:** Maç devam ediyor...\nSkor: **${evSahibi} ${evG} - ${depG} ${deplasman}**`);
-            } else {
-                clearInterval(mac);
-                await msg.edit(`🏁 **Maç Bitti!**\n**Sonuç:** ${evSahibi} ${evG} - ${depG} ${deplasman}`);
+        let evGol = 0, depGol = 0;
+        
+        // Aksiyon dolu olay listesi
+        const olaylar = [
+            "Kaleci topu oyuna soktu.", "Mükemmel bir pas trafiği!", "Rakibini dribbling ile geçti!", 
+            "Orta sahada kıran kırana bir mücadele!", "Araya çok kritik bir pas!", 
+            "Kaleci inanılmaz bir kurtarış yaptı!", "Topu ayağından kaçırdı, top kaybı!", 
+            "Sahada gerginlik! Futbolcular arasında kavga çıktı!", "Sert bir müdahale geldi.",
+            "Kanattan hızlı bir bindirme!", "Savunma hata yapmadı, top kornere çıktı."
+        ];
+        
+        const mesaj = await message.channel.send("🏟️ **Reality League Başlıyor!**\nMaç hakemin düdüğü ile başlıyor!");
+
+        // 10 saniyede 1 dakika ilerleyecek şekilde zamanlayıcı
+        const macDöngüsü = setInterval(async () => {
+            dakika++;
+            
+            // Rastgele olay seç
+            let olay = olaylar[Math.floor(Math.random() * olaylar.length)];
+            
+            // %10 gol şansı
+            if (Math.random() < 0.10) {
+                if (Math.random() > 0.5) evGol++; else depGol++;
+                olay = "⚽ **GOL! TOP AĞLARDA! HARİKA BİR VURUŞ!**";
             }
-        }, 5000); // 5 saniyede bir dakika ilerler
+
+            // Mesajı güncelle
+            await mesaj.edit(`🏟️ **Reality League - Dakika ${dakika}'**
+---------------------------
+⚽ **Skor:** ${evGol} - ${depGol}
+📝 **Durum:** ${olay}
+---------------------------`);
+
+            if (dakika >= 90) {
+                clearInterval(macDöngüsü);
+                await mesaj.edit(`🏁 **MAÇ BİTTİ!**
+
+🏆 **Sonuç:** ${evGol} - ${depGol}
+
+*Reality League'de nefes kesen bir 90 dakika geride kaldı!*`);
+            }
+        }, 10000); // 10 saniye = 1 dakika
     }
 });
 
-client.login(process.env.TOKEN); // Token'ı Railway'de ekleyeceğiz
+client.login(process.env.TOKEN);
