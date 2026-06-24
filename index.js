@@ -1,4 +1,4 @@
-        const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 const KAYIT_ROL_ID = '1519436749661671454';
@@ -11,69 +11,66 @@ client.on('messageCreate', async (message) => {
 
     // 1. TAKIM KURMA
     if (komut === '!takimkur') {
-        if (!message.member.roles.cache.has(KAYIT_ROL_ID)) return message.reply("❌ Takım kurmak için <@&1519436749661671454> rolüne sahip olmalısın!");
+        if (!message.member.roles.cache.has(KAYIT_ROL_ID)) return message.reply("❌ Yetkin yok!");
         const isim = args[1];
-        if (!isim) return message.reply("Takım ismi gir! Örn: !takimkur Gs");
+        if (!isim) return message.reply("!takimkur [İsim]");
         takimlar.set(isim, { baskan: message.author.id, kadro: [] });
-        message.reply(`✅ **${isim}** kuruldu! Başkan: <@${message.author.id}>`);
+        message.reply(`✅ **${isim}** kuruldu!`);
     }
 
-    // 2. OYUNCU EKLEME
+    // 2. OYUNCU EKLEME: !oyuncuekle @kullanıcı [Mevki] [Takımİsmi]
     if (komut === '!oyuncuekle') {
-        const isim = args[1];
         const oyuncu = message.mentions.members.first();
-        if (!takimlar.has(isim)) return message.reply("❌ Takım bulunamadı!");
-        if (takimlar.get(isim).baskan !== message.author.id) return message.reply("❌ Sadece başkan ekleyebilir!");
-        if (!oyuncu) return message.reply("❌ Kullanıcı etiketle!");
-        takimlar.get(isim).kadro.push(oyuncu.displayName);
-        message.reply(`⚽ ${oyuncu.displayName} kadroya eklendi.`);
+        const mevki = args[2];
+        const takimAdi = args[3];
+        
+        if (!takimlar.has(takimAdi)) return message.reply("❌ Takım bulunamadı!");
+        if (takimlar.get(takimAdi).baskan !== message.author.id) return message.reply("❌ Sadece başkan ekleyebilir!");
+        
+        takimlar.get(takimAdi).kadro.push({ ad: oyuncu.displayName, mevki: mevki });
+        message.reply(`⚽ ${oyuncu.displayName} (${mevki}) ${takimAdi} kadrosuna eklendi.`);
     }
 
     // 3. KADRO GÖRÜNTÜLEME
     if (komut === '!kadro') {
         const isim = args[1];
-        if (!takimlar.has(isim)) return message.reply("❌ Takım bulunamadı!");
+        if (!takimlar.has(isim)) return message.reply("❌ Takım yok!");
         const data = takimlar.get(isim);
+        
+        const kadroText = data.kadro.length > 0 
+            ? data.kadro.map(o => `• **${o.ad}** - ${o.mevki}`).join('\n') 
+            : "Henüz oyuncu yok.";
+
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
             .setTitle(`📋 ${isim} Kadrosu`)
             .addFields(
                 { name: '👤 Başkan', value: `<@${data.baskan}>` },
-                { name: '👥 Oyuncular', value: data.kadro.length > 0 ? data.kadro.join('\n') : "Henüz yok." }
+                { name: '👥 Oyuncular', value: kadroText }
             );
         message.channel.send({ embeds: [embed] });
     }
 
-    // 4. TAKIM LİSTELEME
-    if (komut === '!takimliste') {
-        if (takimlar.size === 0) return message.reply("Hiç takım yok.");
-        let txt = "**🏆 Kayıtlı Takımlar:**\n";
-        takimlar.forEach((d, k) => txt += `• **${k}** | Başkan: <@${d.baskan}>\n`);
-        message.channel.send(txt);
-    }
-
-    // 5. MAÇ BAŞLATMA
+    // 4. MAÇ BAŞLATMA (Golcü seçiminde mevki kontrolü)
     if (komut === '!macbaslat') {
         const ev = args[1], dep = args[3];
         if (!takimlar.has(ev) || !takimlar.has(dep)) return message.reply("❌ Takımlar hatalı!");
-        if (takimlar.get(ev).baskan !== message.author.id) return message.reply("❌ Sadece başkan başlatabilir!");
-
+        
         let d = 0, evG = 0, depG = 0;
-        const msg = await message.channel.send(`🏟️ **MAÇ BAŞLADI:** ${ev} - ${dep}`);
+        const msg = await message.channel.send(`🏟️ **MAÇ BAŞLADI:** ${ev} vs ${dep}`);
 
         const mac = setInterval(async () => {
             d++;
-            let durum = "Mücadele sürüyor...";
-            if (Math.random() < 0.05) {
-                if (Math.random() > 0.5) evG++; else depG++;
-                durum = "⚽ GOL!";
+            if (Math.random() < 0.08) {
+                let atanTakim = Math.random() > 0.5 ? ev : dep;
+                let kadro = takimlar.get(atanTakim).kadro;
+                let oyuncu = kadro.length > 0 ? kadro[Math.floor(Math.random() * kadro.length)] : { ad: "Oyuncu", mevki: "Normal" };
+                
+                if (atanTakim === ev) evG++; else depG++;
+                const emb = new EmbedBuilder().setTitle(`⚽ Dk ${d}' GOL!`).setDescription(`**${oyuncu.ad}** (${oyuncu.mevki}) skoru değiştirdi!`);
+                await msg.edit({ content: " ", embeds: [emb] });
             }
-            const emb = new EmbedBuilder().setColor(0x00FF00).setTitle(`Dakika ${d}'`).setDescription(`Skor: ${evG} - ${depG}\n📝 ${durum}`);
-            await msg.edit({ content: " ", embeds: [emb] });
-            if (d >= 90) {
-                clearInterval(mac);
-                msg.edit(`🏁 **MAÇ SONUCU:** ${ev} ${evG} - ${depG} ${dep}`);
-            }
+            if (d >= 90) { clearInterval(mac); msg.edit(`🏁 **SONUÇ:** ${ev} ${evG} - ${depG} ${dep}`); }
         }, 60000);
     }
 });
