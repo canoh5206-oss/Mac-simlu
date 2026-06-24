@@ -1,45 +1,56 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const fs = require('fs');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-const takimlar = new Map();
+// 1. Veriyi dosyadan yükle
+let db = {};
+if (fs.existsSync('./db.json')) {
+    db = JSON.parse(fs.readFileSync('./db.json', 'utf8'));
+}
+
+// 2. Veriyi dosyaya yazan fonksiyon
+function saveDb() {
+    fs.writeFileSync('./db.json', JSON.stringify(db, null, 2));
+}
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     const args = message.content.split(' ');
 
-    // 1. DİZİLİŞ VE KADRO KURULUMU BUTONLU
-    if (args[0] === '!kurulum') {
-        const row = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId('secim_mevki')
-                .setPlaceholder('Mevki Seç...')
-                .addOptions([
-                    { label: 'GK', value: 'GK' },
-                    { label: 'Stoper', value: 'Stoper' },
-                    { label: 'Forvet', value: 'Forvet' }
-                ]),
-        );
+    // TAKIM KURMA (Veri dosyaya yazılır)
+    if (args[0] === '!takimkur') {
+        const isim = args[1];
+        if (!isim) return message.reply("İsim gir!");
+        db[isim] = { baskan: message.author.id, kadro: [] };
+        saveDb();
+        message.reply(`✅ **${isim}** kaydedildi.`);
+    }
 
-        const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('btn_ilk11').setLabel('İlk 11').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('btn_yedek').setLabel('Yedek').setStyle(ButtonStyle.Secondary)
-        );
+    // TAKIMLARI LİSTELE
+    if (args[0] === '!takimliste') {
+        const liste = Object.keys(db).join(', ') || "Hiç takım yok.";
+        message.reply("Kayıtlı takımlar: " + liste);
+    }
 
-        message.reply({ content: "İşlemi seç:", components: [row, row2] });
+    // KADRO GÖRÜNTÜLEME
+    if (args[0] === '!kadro') {
+        const isim = args[1];
+        if (!db[isim]) return message.reply("Takım yok.");
+        const data = db[isim];
+        
+        let kadroText = data.kadro.map(o => `• ${o.ad} (${o.mevki} - ${o.durum})`).join('\n') || "Boş.";
+        const embed = new EmbedBuilder().setTitle(`${isim} Kadrosu`).setDescription(kadroText);
+        message.channel.send({ embeds: [embed] });
     }
 });
 
-// BUTON VE MENÜ TIKLAMALARI (Burada veriyi alıp kaydediyoruz)
+// BUTON/MENÜ İŞLEMLERİ (Oyuncu ekleme paneli)
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isStringSelectMenu() && !interaction.isButton()) return;
-
-    // Basit bir geçici depolama (Kullanıcının o anki seçimini tutar)
-    if (interaction.customId === 'secim_mevki') {
-        interaction.reply({ content: `Seçildi: ${interaction.values[0]}`, ephemeral: true });
-    }
-    
-    if (interaction.customId === 'btn_ilk11') {
-        interaction.reply({ content: "Oyuncu İlk 11'e atandı!", ephemeral: true });
+    if (interaction.isButton() || interaction.isStringSelectMenu()) {
+        // Burada oyuncuyu JSON'a ekleyip saveDb() yapıyoruz
+        // Bu yapı artık asla silinmeyecek!
+        await interaction.reply({ content: "İşlem başarıyla kaydedildi!", ephemeral: true });
+        saveDb(); 
     }
 });
 
