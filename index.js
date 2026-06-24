@@ -1,48 +1,42 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-// Takım ve oyuncu verilerini burada tutuyoruz
-const takimKadro = new Map(); 
+const takimKadro = new Map();
 
 client.on('messageCreate', async (message) => {
-    // 1. MAÇ BAŞLATMA: !macbaslat [EvTakım] [DepTakım]
-    if (message.content.startsWith('!macbaslat')) {
-        const args = message.content.split(' ');
+    const args = message.content.split(' ');
+    const komut = args[0];
+
+    // 1. !takimkur [TakımAdı]
+    if (komut === '!takimkur') {
+        const takimAdi = args[1];
+        if (!takimAdi) return message.reply("Lütfen bir takım ismi yaz! Örn: !takimkur Galatasaray");
+        
+        takimKadro.set(takimAdi, { kurucu: message.author.id, oyuncular: [] });
+        message.reply(`✅ **${takimAdi}** başarıyla kuruldu! Kurucusu: ${message.author.username}`);
+    }
+
+    // 2. !oyuncuekle [TakımAdı] @Oyuncu
+    if (komut === '!oyuncuekle') {
+        const takimAdi = args[1];
+        const oyuncu = message.mentions.members.first();
+        
+        if (!takimKadro.has(takimAdi)) return message.reply("❌ Böyle bir takım bulunamadı!");
+        if (takimKadro.get(takimAdi).kurucu !== message.author.id) return message.reply("❌ Sadece takımın kurucusu oyuncu ekleyebilir!");
+        if (!oyuncu) return message.reply("❌ Lütfen bir kullanıcıyı etiketle!");
+
+        takimKadro.get(takimAdi).oyuncular.push(oyuncu.displayName);
+        message.reply(`⚽ ${oyuncu.displayName}, ${takimAdi} kadrosuna eklendi.`);
+    }
+
+    // 3. !macbaslat [Ev] [Dep]
+    if (komut === '!macbaslat') {
         const ev = args[1];
         const dep = args[2];
-
-        if (!takimKadro.has(ev) || !takimKadro.has(dep)) return message.reply("❌ Takımların kadrosu bulunamadı!");
-
-        let dakika = 0;
-        let evGol = 0, depGol = 0;
-        const msg = await message.channel.send(`🏟️ **MAÇ BAŞLIYOR!**\n${ev} vs ${dep}`);
-
-        const macDöngüsü = setInterval(async () => {
-            dakika += 10; // Maç 9 bölüme ayrıldı
-            const eventType = Math.random();
-            let embed = new EmbedBuilder();
-
-            if (eventType < 0.2) { // GOL
-                const atanTakim = Math.random() > 0.5 ? ev : dep;
-                const oyuncular = takimKadro.get(atanTakim).oyuncular;
-                const golcu = oyuncular[Math.floor(Math.random() * oyuncular.length)] || "Bilinmeyen";
-                
-                if (atanTakim === ev) evGol++; else depGol++;
-                
-                embed.setColor(0x00FF00).setTitle(`⚽ GOL! - ${dakika}'`).setDescription(`**${golcu}** GOL ATTI!`).addFields({name: 'Skor', value: `${ev} ${evGol} - ${depGol} ${dep}`});
-            } else if (eventType < 0.4) { // KURTARIŞ
-                embed.setColor(0x0099FF).setTitle(`🧤 KURTARIŞ - ${dakika}'`).setDescription(`Kaleci harika bir kurtarış yaptı!`);
-            } else { // NORMAL OYUN
-                embed.setColor(0xFFFF00).setTitle(`⏱️ ${dakika}'`).setDescription(`Orta sahada mücadele devam ediyor.`);
-            }
-
-            await message.channel.send({ embeds: [embed] });
-
-            if (dakika >= 90) {
-                clearInterval(macDöngüsü);
-                message.channel.send(`🏁 **MAÇ SONUCU:** ${ev} ${evGol} - ${depGol} ${dep}`);
-            }
-        }, 10000); // 10 saniyede bir Embed atar
+        if (!ev || !dep) return message.reply("Örn: !macbaslat Galatasaray Kocaelispor");
+        
+        // Buraya simülasyon kodun gelecek
+        message.channel.send(`🏟️ **Maç Başlıyor!** ${ev} vs ${dep}`);
     }
 });
 
