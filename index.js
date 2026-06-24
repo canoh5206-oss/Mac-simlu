@@ -13,9 +13,9 @@ client.on('messageCreate', async (message) => {
     if (komut === '!takimkur') {
         if (!message.member.roles.cache.has(KAYIT_ROL_ID)) return message.reply("❌ Yetkin yok!");
         const isim = args[1];
-        if (!isim) return message.reply("Kullanım: !takimkur Fenerbahçe");
+        if (!isim) return message.reply("Kullanım: !takimkur [Takımİsmi]");
         takimlar.set(isim, { baskan: message.author.id, kadro: [] });
-        message.reply(`✅ **${isim}** kuruldu!`);
+        message.reply(`✅ **${isim}** kuruldu! Başkan: <@${message.author.id}>`);
     }
 
     // 2. TAKIM LİSTELEME
@@ -26,20 +26,17 @@ client.on('messageCreate', async (message) => {
         message.channel.send(txt);
     }
 
-    // 3. OYUNCU EKLEME: !oyuncuekle @kullanıcı Forvet Fenerbahçe
-    // args[0]=!oyuncuekle, args[1]=@kullanıcı, args[2]=Mevki, args[3]=Takım
+    // 3. OYUNCU EKLEME
+    // Kullanım: !oyuncuekle Fenerbahçe Forvet @kullanıcı
     if (komut === '!oyuncuekle') {
-        const oyuncu = message.mentions.members.first();
+        const takimAdi = args[1];
         const mevki = args[2];
-        const takimAdi = args[3];
-        
-        if (!takimAdi || !takimlar.has(takimAdi)) {
-            return message.reply(`❌ **${takimAdi}** adında takım yok! Lütfen !takimliste ile isimleri kontrol et.`);
-        }
-        if (takimlar.get(takimAdi).baskan !== message.author.id) {
-            return message.reply("❌ Sadece başkan ekleyebilir!");
-        }
-        
+        const oyuncu = message.mentions.members.first();
+
+        if (!takimAdi || !takimlar.has(takimAdi)) return message.reply("❌ Takım bulunamadı! !takimliste yazıp ismi kontrol et.");
+        if (takimlar.get(takimAdi).baskan !== message.author.id) return message.reply("❌ Sadece başkan oyuncu ekleyebilir!");
+        if (!mevki || !oyuncu) return message.reply("❌ Kullanım: !oyuncuekle [Takımİsmi] [Mevki] @kullanıcı");
+
         takimlar.get(takimAdi).kadro.push({ ad: oyuncu.displayName, mevki: mevki });
         message.reply(`⚽ ${oyuncu.displayName} (${mevki}) ${takimAdi} kadrosuna eklendi.`);
     }
@@ -47,10 +44,15 @@ client.on('messageCreate', async (message) => {
     // 4. KADRO
     if (komut === '!kadro') {
         const isim = args[1];
-        if (!takimlar.has(isim)) return message.reply("❌ Takım yok!");
+        if (!takimlar.has(isim)) return message.reply("❌ Takım bulunamadı!");
         const data = takimlar.get(isim);
-        const kadroText = data.kadro.map(o => `• **${o.ad}** (${o.mevki})`).join('\n') || "Yok.";
-        const embed = new EmbedBuilder().setTitle(`📋 ${isim} Kadrosu`).setDescription(`Başkan: <@${data.baskan}>\n\n**Oyuncular:**\n${kadroText}`);
+        const kadroText = data.kadro.map(o => `• **${o.ad}** (${o.mevki})`).join('\n') || "Henüz oyuncu yok.";
+        
+        const embed = new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setTitle(`📋 ${isim} Kadrosu`)
+            .setDescription(`**Başkan:** <@${data.baskan}>\n\n**Oyuncular:**\n${kadroText}`);
+        
         message.channel.send({ embeds: [embed] });
     }
 });
