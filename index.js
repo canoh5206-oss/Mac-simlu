@@ -18,18 +18,28 @@ client.on('messageCreate', async (message) => {
         message.reply(`✅ **${isim}** kuruldu!`);
     }
 
-    // 2. OYUNCU EKLEME: !oyuncuekle @kullanıcı [Mevki] [Takımİsmi]
+    // 2. OYUNCU EKLEME
     if (komut === '!oyuncuekle') {
         const oyuncu = message.mentions.members.first();
         const mevki = args[2];
-        const takimAdi = args[3];
+        const takimAdi = args[3]; // Örn: !oyuncuekle @kullanıcı Forvet Fenerbahçe
+
+        // Debug için bunu ekledim, botun ne anladığını göreceğiz
+        console.log("Aranan Takım:", takimAdi);
+        console.log("Kayıtlı Takımlar:", Array.from(takimlar.keys()));
+
+        if (!takimAdi || !takimlar.has(takimAdi)) {
+            return message.reply(`❌ **${takimAdi}** adında bir takım bulamadım! Mevcut takımlar: ${Array.from(takimlar.keys()).join(', ')}`);
+        }
         
-        if (!takimlar.has(takimAdi)) return message.reply("❌ Takım bulunamadı!");
-        if (takimlar.get(takimAdi).baskan !== message.author.id) return message.reply("❌ Sadece başkan ekleyebilir!");
+        if (takimlar.get(takimAdi).baskan !== message.author.id) {
+            return message.reply("❌ Sadece başkan ekleyebilir!");
+        }
         
         takimlar.get(takimAdi).kadro.push({ ad: oyuncu.displayName, mevki: mevki });
         message.reply(`⚽ ${oyuncu.displayName} (${mevki}) ${takimAdi} kadrosuna eklendi.`);
     }
+
 
     // 3. KADRO GÖRÜNTÜLEME
     if (komut === '!kadro') {
