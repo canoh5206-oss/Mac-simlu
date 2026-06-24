@@ -1,51 +1,48 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
+// Takım ve oyuncu verilerini burada tutuyoruz
+const takimKadro = new Map(); 
+
 client.on('messageCreate', async (message) => {
-    if (message.content === '!macbaslat') {
+    // 1. MAÇ BAŞLATMA: !macbaslat [EvTakım] [DepTakım]
+    if (message.content.startsWith('!macbaslat')) {
+        const args = message.content.split(' ');
+        const ev = args[1];
+        const dep = args[2];
+
+        if (!takimKadro.has(ev) || !takimKadro.has(dep)) return message.reply("❌ Takımların kadrosu bulunamadı!");
+
         let dakika = 0;
         let evGol = 0, depGol = 0;
-        
-        // Aksiyon dolu olay listesi
-        const olaylar = [
-            "Kaleci topu oyuna soktu.", "Mükemmel bir pas trafiği!", "Rakibini dribbling ile geçti!", 
-            "Orta sahada kıran kırana bir mücadele!", "Araya çok kritik bir pas!", 
-            "Kaleci inanılmaz bir kurtarış yaptı!", "Topu ayağından kaçırdı, top kaybı!", 
-            "Sahada gerginlik! Futbolcular arasında kavga çıktı!", "Sert bir müdahale geldi.",
-            "Kanattan hızlı bir bindirme!", "Savunma hata yapmadı, top kornere çıktı."
-        ];
-        
-        const mesaj = await message.channel.send("🏟️ **Reality League Başlıyor!**\nMaç hakemin düdüğü ile başlıyor!");
+        const msg = await message.channel.send(`🏟️ **MAÇ BAŞLIYOR!**\n${ev} vs ${dep}`);
 
-        // 10 saniyede 1 dakika ilerleyecek şekilde zamanlayıcı
         const macDöngüsü = setInterval(async () => {
-            dakika++;
-            
-            // Rastgele olay seç
-            let olay = olaylar[Math.floor(Math.random() * olaylar.length)];
-            
-            // %10 gol şansı
-            if (Math.random() < 0.10) {
-                if (Math.random() > 0.5) evGol++; else depGol++;
-                olay = "⚽ **GOL! TOP AĞLARDA! HARİKA BİR VURUŞ!**";
+            dakika += 10; // Maç 9 bölüme ayrıldı
+            const eventType = Math.random();
+            let embed = new EmbedBuilder();
+
+            if (eventType < 0.2) { // GOL
+                const atanTakim = Math.random() > 0.5 ? ev : dep;
+                const oyuncular = takimKadro.get(atanTakim).oyuncular;
+                const golcu = oyuncular[Math.floor(Math.random() * oyuncular.length)] || "Bilinmeyen";
+                
+                if (atanTakim === ev) evGol++; else depGol++;
+                
+                embed.setColor(0x00FF00).setTitle(`⚽ GOL! - ${dakika}'`).setDescription(`**${golcu}** GOL ATTI!`).addFields({name: 'Skor', value: `${ev} ${evGol} - ${depGol} ${dep}`});
+            } else if (eventType < 0.4) { // KURTARIŞ
+                embed.setColor(0x0099FF).setTitle(`🧤 KURTARIŞ - ${dakika}'`).setDescription(`Kaleci harika bir kurtarış yaptı!`);
+            } else { // NORMAL OYUN
+                embed.setColor(0xFFFF00).setTitle(`⏱️ ${dakika}'`).setDescription(`Orta sahada mücadele devam ediyor.`);
             }
 
-            // Mesajı güncelle
-            await mesaj.edit(`🏟️ **Reality League - Dakika ${dakika}'**
----------------------------
-⚽ **Skor:** ${evGol} - ${depGol}
-📝 **Durum:** ${olay}
----------------------------`);
+            await message.channel.send({ embeds: [embed] });
 
             if (dakika >= 90) {
                 clearInterval(macDöngüsü);
-                await mesaj.edit(`🏁 **MAÇ BİTTİ!**
-
-🏆 **Sonuç:** ${evGol} - ${depGol}
-
-*Reality League'de nefes kesen bir 90 dakika geride kaldı!*`);
+                message.channel.send(`🏁 **MAÇ SONUCU:** ${ev} ${evGol} - ${depGol} ${dep}`);
             }
-        }, 10000); // 10 saniye = 1 dakika
+        }, 10000); // 10 saniyede bir Embed atar
     }
 });
 
