@@ -56,14 +56,14 @@ client.on('messageCreate', async (message) => {
             await message.reply({ embeds: [embed], components: [row] });
             kayitSayilari[message.author.id] = (kayitSayilari[message.author.id] || 0) + 1;
         } catch (e) {
-            message.reply('❌ Bot yetkilerini kontrol et kanka!');
+            message.reply('❌ Bot yetkilerini kontrol et');
         }
     }
 
     // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir . Örn: `.ara fransa`');
 
         await message.guild.members.fetch(); 
         
