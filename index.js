@@ -1,5 +1,5 @@
 const { 
-    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
+    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
 } = require('discord.js');
 
 const client = new Client({
@@ -24,7 +24,7 @@ client.on('messageCreate', async (message) => {
 
     const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has('Administrator');
 
-    // --- 🎫 TICKET KURULUM KOMUTU ---
+    // --- 🎫 TICKET KURULUM KOMUTU (Sadece Yöneticiler) ---
     if (message.content === '.ticket-kur' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('ticket_olustur').setLabel('📩 DESTEK TALEBİ OLUŞTUR').setStyle(ButtonStyle.Primary)
@@ -32,6 +32,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
     }
 
+    // Yetkili olmayanlar bundan sonraki komutları (.ara ve !k) tetikleyemez
     if (!isYetkili) return;
 
     // --- !k KOMUTU ---
@@ -63,7 +64,7 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (Tam İstediğin Fotoğraftaki Format) ---
+    // --- .ara KOMUTU (Sayı Hatası Vermeyen, Kesin Çözüm Sürümü) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir kriter gir kanka. Örn: `.ara SNT`');
@@ -87,19 +88,13 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // Kanka tam istediğin gibi: Önce Takma Adı, sonra araya çizgi, sonra da mavi etiket!
+        // Kanka burası düz yazı olarak gidiyor: Önce Takma Ad, sonra mavi etiket!
         const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 15).join('\n');
         
-        const embed = new EmbedBuilder()
-            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
-            .setDescription(liste)
-            .setColor(0xF1C40F)
-            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
-
-        // users: [] ayarı sayesinde Discord etiketleri sayıya çevirmez, mavi yapar ama pinglemez!
-        message.reply({ 
-            embeds: [embed],
-            allowedMentions: { users: [] } 
+        // Bu şekilde hem mavi görünecek hem de alt satırdaki users: [] sayesinde asla bildirim (ping) gitmeyecek!
+        message.reply({
+            content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **Toplam ${sonuclar.size} kişi bulundu.**`,
+            allowedMentions: { users: [] }
         });
     }
 });
@@ -108,7 +103,7 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
-    // Ticket Oluşturma
+    // Ticket Oluşturma Butonu
     if (interaction.customId === 'ticket_olustur') {
         try {
             const kanalAdi = `ticket-${interaction.user.username}`;
@@ -134,7 +129,7 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // Ticket Kapatma
+    // Ticket Kapatma Butonu
     if (interaction.customId === 'ticket_kapat') {
         await interaction.reply('🔒 Bilet kanalı 5 saniye içinde tamamen siliniyor...');
         return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
@@ -157,4 +152,5 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+
                     
