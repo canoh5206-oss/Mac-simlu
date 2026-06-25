@@ -1,3 +1,4 @@
+
 const { 
     Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
 } = require('discord.js');
@@ -63,7 +64,7 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (18094.jpg Görselindeki Orijinal Kusursuz Sürüm) ---
+    // --- .ara KOMUTU (18094.jpg Görselindeki Orijinal Sürüm) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir kriter gir kanka. Örn: `.ara SNT`');
@@ -87,8 +88,7 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // Kanka sadece profil emojisi ve m.displayName basıyoruz! 
-        // İsimlerin arkasındaki o uzun "@" kısımları zaten sunucudaki adlarında kayıtlı olduğu için otomatik jilet gibi çıkacak!
+        // İsimlerin arkasındaki @ kısımları sunucudaki adlarında olduğu için direkt m.displayName yetiyor
         const liste = sonuclar.map(m => `👤 ${m.displayName}`).slice(0, 15).join('\n');
         
         const embed = new EmbedBuilder()
@@ -97,9 +97,61 @@ client.on('messageCreate', async (message) => {
             .setColor(0xF1C40F)
             .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
 
-        // Temiz bir şekilde embed kutusunu gönderiyoruz, sıfır pingleme, sıfır sayı hatası!
         message.reply({ embeds: [embed] });
     }
+});
 
+// --- 🎟️ INTERACTION İŞLEYİCİ (Butonlar) ---
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isButton()) return;
 
-                    
+    // Ticket Oluşturma
+    if (interaction.customId === 'ticket_olustur') {
+        try {
+            const kanalAdi = `ticket-${interaction.user.username}`;
+            const kanal = await interaction.guild.channels.create({
+                name: kanalAdi,
+                type: ChannelType.GuildText,
+                parent: TICKET_KATEGORI_ID,
+                permissionOverwrites: [
+                    { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                    { id: YONETICI_ROL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+                ]
+            });
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_kapat').setLabel('🔒 Bileti Kapat').setStyle(ButtonStyle.Danger)
+            );
+
+            await kanal.send({ content: `✅ Hoş geldin ${interaction.user}, <@&${YONETICI_ROL_ID}> ekibi seninle ilgilenecektir.`, components: [row] });
+            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı kanka: ${kanal}`, ephemeral: true });
+        } catch (e) {
+            return interaction.reply({ content: '❌ Bilet kanalı açılırken yetki hatası oluştu!', ephemeral: true });
+        }
+    }
+
+    // Ticket Kapatma
+    if (interaction.customId === 'ticket_kapat') {
+        await interaction.reply('🔒 Bilet kanalı 5 saniye içinde tamamen siliniyor...');
+        return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+    }
+
+    // Kayıt Rol Butonları
+    const [prefix, rolKey, userId] = interaction.customId.split('_');
+    const ROL_MAP = { 'futbolcu': '1512130383070892094', 'baskan': '1512323399467139213', 'td': '1513270136176381953' };
+
+    if (prefix === 'rol') {
+        try {
+            const member = await interaction.guild.members.fetch(userId);
+            await member.roles.add(ROL_MAP[rolKey]);
+            const toplamKayit = kayitSayilari[interaction.user.id] || 0;
+            return interaction.reply({ content: `✅ **İşlem Başarılı:** ${member.displayName} kullanıcısına rolü verildi!\n📈 **Senin Toplam Kayıt Sayın:** \`${toplamKayit}\`` });
+        } catch (e) {
+            return interaction.reply({ content: '❌ Rol verilirken bir hata çıktı!', ephemeral: true });
+        }
+    }
+});
+
+client.login(process.env.TOKEN);
+                
