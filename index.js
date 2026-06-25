@@ -1,5 +1,3 @@
-
-        
 const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
 } = require('discord.js');
@@ -21,7 +19,7 @@ const ROL_MAP = {
 let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Kayıt ve Gelişmiş Arama Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Akıllı Fransa ve Emoji Destekli Arama Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -64,19 +62,29 @@ client.on('messageCreate', async (message) => {
 
     // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
-        const aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara 🇫🇷`');
+        let aranan = message.content.replace('.ara', '').trim();
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
 
-        await message.guild.members.fetch(); // Sunucudaki tüm üyeleri güncelle/çek
+        await message.guild.members.fetch(); 
         
-        // Büyük-küçük harf duyarlılığını tamamen ortadan kaldırıyoruz (Türkçe karakter uyumlu)
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
+        
+        // Fransa İçin Özel Eşleştirme Listesi
+        // Kullanıcı bunlardan birini aratırsa sunucuda hem 🇲🇫 hem 🇫🇷 hem de yazıları arayacak
+        const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
+        const fransaAraniyor Mu = fransaKelimeleri.includes(arananKucuk);
 
         const sonuclar = message.guild.members.cache.filter(m => {
             const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
-            // Eğer aranan şey direkt Fransa bayrağıysa veya metnin içinde geçiyorsa yakala
+            // Eğer Fransa aranıyorsa, takma adında Martinik bayrağı veya Fransa bayrağı olan herkesi kapsa
+            if (fransaAraniyorMu) {
+                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
+                       username.includes('fransa') || username.includes('fransiz');
+            }
+
+            // Normal arama kriterleri (Diğer ülkeler ve isimler için)
             return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
         });
 
