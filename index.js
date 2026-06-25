@@ -1,71 +1,66 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ 
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.MessageContent, 
+        GatewayIntentBits.GuildMembers 
+    ] 
+});
 
-let db = JSON.parse(fs.readFileSync('./db.json', 'utf8'));
+// JSON veritabanını yükle
+let db = fs.existsSync('./db.json') ? JSON.parse(fs.readFileSync('./db.json', 'utf8')) : {};
 function saveDb() { fs.writeFileSync('./db.json', JSON.stringify(db, null, 2)); }
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     const args = message.content.split(' ');
+    const komut = args[0];
 
-    // 1. TAKIM KURMA
-    if (args[0] === '!takimkur') {
-        const isim = args[1];
-        db[isim] = { baskan: message.author.id, kadro: [] };
+    // .takimkur Fenerbahçe
+    if (komut === '.takimkur') {
+        db[args[1]] = { baskan: message.author.id, kadro: [] };
         saveDb();
-        message.reply(`✅ **${isim}** kuruldu.`);
+        message.reply(`✅ **${args[1]}** kuruldu.`);
     }
 
-    // 2. OYUNCU EKLEME PANELİ (Butonlu)
-    if (args[0] === '!ekle') {
-        const oyuncu = message.mentions.members.first();
-        const takim = args[2];
-        if (!oyuncu || !db[takim]) return message.reply("❌ !ekle @kullanıcı TakımAdı");
-        
-        const row1 = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder().setCustomId(`mevki_${oyuncu.id}_${takim}`).setPlaceholder('Mevki Seç...')
-                .addOptions([{label:'GK',value:'GK'},{label:'Stoper',value:'Stoper'},{label:'Forvet',value:'Forvet'}])
-        );
-        const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`durum_ilk11_${oyuncu.id}_${takim}`).setLabel('İlk 11').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`durum_yedek_${oyuncu.id}_${takim}`).setLabel('Yedek').setStyle(ButtonStyle.Secondary)
-        );
-        message.reply({ content: `⚽ **${oyuncu.displayName}** için mevkii ve durumu seç:`, components: [row1, row2] });
+    // .oyuncuekle Fenerbahçe Forvet 🇲🇫 @etiket
+    if (komut === '.oyuncuekle') {
+        const takim = args[1], mevki = args[2], bayrak = args[3];
+        const uye = message.mentions.members.first();
+        if (!db[takim]) return message.reply("❌ Takım bulunamadı!");
+        db[takim].kadro.push({ ad: uye.displayName, id: uye.id, mevki, bayrak });
+        saveDb();
+        message.reply(`✅ ${uye.displayName} (${bayrak} - ${mevki}) ${takim} kadrosuna eklendi.`);
     }
 
-    // 3. KADRO GÖRÜNTÜLEME
-    if (args[0] === '!kadro') {
+    // .ara 🇲🇫 Forvet
+    if (komut === '.ara') {
+        const bayrak = args[1];
+        const mevki = args[2];
+        let sonuc = [];
+        for (let t in db) {
+            let buldu = db[t].kadro.filter(o => o.bayrak === bayrak && o.mevki === mevki);
+            if (buldu.length > 0) sonuc.push(`**${t}**: ${buldu.map(o => o.ad).join(', ')}`);
+        }
+        message.reply(sonuc.length > 0 ? sonuc.join('\n') : "❌ Bu kriterde oyuncu yok.");
+    }
+    
+    // .kadro Fenerbahçe
+    if (komut === '.kadro') {
         const data = db[args[1]];
-        if (!data) return message.reply("Takım yok!");
-        const k = data.kadro.map(o => `• ${o.ad} (${o.mevki} - ${o.durum})`).join('\n');
-        message.reply(`📋 **${args[1]} Kadrosu:**\n${k}`);
-    }
-
-    // 4. MAÇ SİMÜLASYONU
-    if (args[0] === '!mac') {
-        const ev = args[1], dep = args[2];
-        let d = 0, evG = 0, depG = 0;
-        const msg = await message.channel.send(`🏟️ ${ev} vs ${dep} başladı!`);
-        const timer = setInterval(() => {
-            d += 15;
-            if (Math.random() > 0.5) { evG++; } else { depG++; }
-            msg.edit(`⚽ Dakika ${d}: Skor ${evG} - ${depG}`);
-            if (d >= 90) { clearInterval(timer); msg.edit(`🏁 Sonuç: ${ev} ${evG} - ${depG} ${dep}`); }
-        }, 3000);
+        if (!data) return message.reply("Takım yok.");
+        message.reply(`📋 **${args[1]} Kadrosu:**\n` + data.kadro.map(o => `• ${o.ad} (${o.bayrak} ${o.mevki})`).join('\n'));
     }
 });
 
-// BUTON TIKLAMALARI
-client.on('interactionCreate', async i => {
-    if (!i.isStringSelectMenu() && !i.isButton()) return;
-    const parts = i.customId.split('_');
-    const type = parts[0]; 
-    const val = type === 'mevki' ? i.values[0] : parts[1];
-    
-    // Geçici bir yere yazıp butonla birleştirebilirsin, şimdilik basit:
-    i.reply({ content: `✅ ${val} kaydedildi!`, ephemeral: true });
-    // Not: Buraya mevki ve durumu JSON'a ekleyen mantığı ekleyeceksin.
+// Sunucudan çıkan otomatik silinir
+client.on('guildMemberRemove', member => {
+    for (let t in db) {
+        db[t].kadro = db[t].kadro.filter(o => o.id !== member.id);
+    }
+    saveDb();
 });
 
 client.login(process.env.TOKEN);
