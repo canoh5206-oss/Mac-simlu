@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
-// Botun sunucudaki üyeleri eksiksiz tarayabilmesi için gerekli tüm Intent'leri açıyoruz
+// Botun sunucudaki üyeleri ve mesajları eksiksiz okuyabilmesi için gerekli tüm Intent'leri açıyoruz
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -34,7 +34,7 @@ client.on('messageCreate', async (message) => {
             .addFields(
                 { name: '🔍 Mevki & Ülke Arama', value: '`.ara <mevki/bayrak>`\n*Örnek:* `.ara SNT`, `.ara sağ bek`, `.ara 🇧🇷`', inline: false },
                 { name: '👤 İsim ile Oyuncu Arama', value: '`.ara <oyuncu_adı>`\n*Örnek:* `.ara V.júnior`, `.ara Çağatay`', inline: false },
-                { name: 'ℹ️ Kısaltma İpuçları', value: '`sağ bek` = SB, `sol bek` = SLB, `stoper` = STP, `santrafor` = SNT, `kaleci` = KL', inline: true }
+                { name: 'ℹ️ Eklenen Mevki Kısaltmaları', value: '`SNT`, `SĞK`, `SLK`, `OSS`, `SGB`, `SLB`, `STP`, `KL`', inline: true }
             )
             .setFooter({ text: 'Sistem 7/24 Aktif • Keyifli RP\'ler!' });
 
@@ -45,35 +45,55 @@ client.on('messageCreate', async (message) => {
     // 2. .ara KOMUTU (Gelişmiş & Önbellek Sorunu Olmayan)
     // ==========================================
     if (command === 'ara') {
-        let kriter = args.join(' ');
+        let arananKelime = args.join(' ');
 
-        if (!kriter) {
-            return message.reply('❌ **Hata:** Ne aratmak istiyorsun kanka? Yazman lazım.\n*Örnek:* `.ara sağ bek` veya `.ara V.júnior` veya `.ara 🇲🇫`');
+        if (!arananKelime) {
+            return message.reply('❌ **Hata:** Ne aratmak istiyorsun kanka? Yazman lazım.\n*Örnek:* `.ara SNT`, `.ara SĞK`, `.ara 🇲🇫`');
         }
 
-        // Türkçe uzun yazımları takma adlardaki standart kısaltmalara otomatik eşliyoruz
-        const kriterLower = kriter.toLowerCase().trim();
-        if (kriterLower === 'sağ bek' || kriterLower === 'sag bek') kriter = 'SB';
-        if (kriterLower === 'sol bek') kriter = 'SLB';
-        if (kriterLower === 'stoper') kriter = 'STP';
-        if (kriterLower === 'santrafor') kriter = 'SNT';
-        if (kriterLower === 'kaleci') kriter = 'KL';
+        // İstediğin tüm mevkiler ve Türkçe uzun yazımları için kelime haritası
+        let kriter = arananKelime;
+        const kontrol = arananKelime.toUpperCase().trim();
+        const mevkiHaritasi = {
+            'SANTRAFOR': 'SNT', 'SNT': 'SNT',
+            'SAĞ AÇIK': 'SĞK', 'SAG AÇIK': 'SĞK', 'SĞK': 'SĞK',
+            'SOL AÇIK': 'SLK', 'SLK': 'SLK',
+            'ORTA SAHA': 'OSS', 'ORTASHA': 'OSS', 'OSS': 'OSS',
+            'SAĞ BEK': 'SGB', 'SAG BEK': 'SGB', 'SGB': 'SGB',
+            'SOL BEK': 'SLB', 'SLB': 'SLB',
+            'STOPER': 'STP', 'STP': 'STP',
+            'KALECİ': 'KL', 'KALE': 'KL', 'KL': 'KL'
+        };
+
+        // Eğer girilen kelime listede varsa (Örn: "Sağ Bek" yazıldıysa) bunu "SGB"ye çevirir
+        if (mevkiHaritasi[kontrol]) {
+            kriter = mevkiHaritasi[kontrol];
+        }
 
         try {
-            // "Bazen yok" sorununu bitiren kısım: Sunucudaki TÜM üyeleri her aramada API'den canlı çekiyoruz
+            // Önbellek (Cache) hatasını bitiren kısım: Sunucudaki TÜM üyeleri API'den canlı çekiyoruz
             const tumUyeler = await message.guild.members.fetch({ force: true });
+            
+            // Düzenli ifade (Regex) ile girdinin emoji/bayrak içerip içermediğini kontrol ediyoruz
+            const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+            const emojiVarMi = emojiRegex.test(kriter);
 
-            // Çekilen üyelerin takma adlarında ve kullanıcı adlarında büyük/küçük harf duyarsız arama yapıyoruz
             const sonuclar = tumUyeler.filter(member => {
-                const takmaAd = member.displayName ? member.displayName.toLowerCase() : '';
-                const kullanıcıAdı = member.user.username ? member.user.username.toLowerCase() : '';
-                const aranan = kriter.toLowerCase().trim();
+                const takmaAd = member.displayName || '';
+                const kullaniciAdi = member.user.username || '';
 
-                return takmaAd.includes(aranan) || kullanıcıAdı.includes(aranan);
+                if (emojiVarMi) {
+                    // Bayraklarda kod yapısının bozulmaması için doğrudan ham haliyle aratıyoruz
+                    return takmaAd.includes(kriter) || kullaniciAdi.includes(kriter);
+                } else {
+                    // Normal metinlerde (SNT, İsim vb.) büyük/küçük harf duyarsız aratıyoruz
+                    return takmaAd.toUpperCase().includes(kriter.toUpperCase()) || 
+                           kullaniciAdi.toUpperCase().includes(kriter.toUpperCase());
+                }
             });
 
             if (sonuclar.size === 0) {
-                return message.reply(`❌ Kriterlere veya isme uygun (\`${args.join(' ')}\`) oyuncu sunucuda bulunamadı kanka!`);
+                return message.reply(`❌ Kriterlere veya isme uygun (\`${arananKelime}\`) oyuncu bulunamadı kanka!`);
             }
 
             // İlk 20 sonucu listeliyoruz (Discord sınırlarına takılmamak için)
@@ -84,7 +104,7 @@ client.on('messageCreate', async (message) => {
 
             const embed = new EmbedBuilder()
                 .setTitle('🔍 Oyuncu / Mevki Arama Sonuçları')
-                .setDescription(`🔎 **Aranan Kelime/Kriter:** \`${args.join(' ')}\` ${kriter !== args.join(' ') ? `(\`${kriter}\` olarak arandı)` : ''}\n\n${liste}`)
+                .setDescription(`🔎 **Aranan:** \`${arananKelime}\` ${kriter !== arananKelime ? `(\`${kriter}\` olarak arandı)` : ''}\n\n${liste}`)
                 .setColor(0x3498db)
                 .setFooter({ text: 'Crusy & Reality League Arama Motoru' });
 
