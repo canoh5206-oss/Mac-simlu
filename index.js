@@ -1,5 +1,5 @@
- const { 
-    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
+         const { 
+    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
 } = require('discord.js');
 
 const client = new Client({
@@ -10,13 +10,13 @@ const client = new Client({
 });
 
 const YETKILI_ROL_ID = '1512316879551860796'; // !k ve .ara kullanabilecek rol
-const YONETICI_ROL_ID = '1513269024866304091'; // Biletlere bakacak rol
+const YONETICI_ROL_ID = '1513269024866304091'; // Biletlere bakacak yönetici rolü
 const TICKET_KATEGORI_ID = '1514324399900196895'; // Biletlerin açılacağı kategori
 
-let kayitSayilari = {};
+let kayitSayilari = {}; // Yetkililerin kayıt sayılarını tutar
 
 client.once('ready', () => {
-    console.log(`✅ Kayıt, Arama ve Ticket Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Kayıt, Embedli Arama ve Ticket Sistemi Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -32,7 +32,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
     }
 
-    // Yetkili olmayanlar bundan sonraki komutları tetikleyemez
+    // Yetkili olmayanlar bundan sonraki komutları (.ara ve !k) tetikleyemez
     if (!isYetkili) return;
 
     // --- !k KOMUTU ---
@@ -51,7 +51,7 @@ client.on('messageCreate', async (message) => {
             
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`rol_futbolcu_${hedonUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`rol_baskan_${hededonUye.id || hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`rol_baskan_${hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`rol_td_${hedonUye.id}`).setLabel('📋 TD').setStyle(ButtonStyle.Danger)
             );
 
@@ -63,8 +63,8 @@ client.on('messageCreate', async (message) => {
             kayitSayilari[message.author.id] = (kayitSayilari[message.author.id] || 0) + 1;
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
-  }):
-        // --- .ara KOMUTU ---
+
+    // --- .ara KOMUTU (Görseldeki gibi Embedli ama Sessiz/Bildirimsiz Etiket Sürümü) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
@@ -88,15 +88,21 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
+        // Görseldeki gibi her satırın başına profil emojisi ekledim ve sadece mavi etiketleri listeledim
+        const liste = sonuclar.map(m => `👤 ${m.user.toString()}`).slice(0, 15).join('\n');
         
+        // Şık sarı/turuncu tonlarında bir kutu (Embed) oluşturuyoruz
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
             .setDescription(liste)
             .setColor(0xF1C40F)
             .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
 
-        message.reply({ embeds: [embed] });
+        // Hem kutulu gönderiyoruz hem de parse: [] sayesinde kimseye bildirim gitmiyor!
+        message.reply({ 
+            embeds: [embed],
+            allowedMentions: { parse: [] }
+        });
     }
 });
 
@@ -124,7 +130,7 @@ client.on('interactionCreate', async (interaction) => {
             );
 
             await kanal.send({ content: `✅ Hoş geldin ${interaction.user}, <@&${YONETICI_ROL_ID}> ekibi seninle ilgilenecektir.`, components: [row] });
-            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı l: ${kanal}`, ephemeral: true });
+            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı kanka: ${kanal}`, ephemeral: true });
         } catch (e) {
             return interaction.reply({ content: '❌ Bilet kanalı açılırken yetki hatası oluştu!', ephemeral: true });
         }
@@ -153,3 +159,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+     
