@@ -11,11 +11,11 @@ const client = new Client({
 // Maçları kontrol etmek ve durdurabilmek için global hafıza
 let aktifMaclar = new Map();
 
-// Takımları ve kadroları hafızada tutacak ana veri yapısı
+// O KADAR KURDUĞUN KADROLARI TUTAN ANA YAPI (BURASI SIFIRLANMAZ)
 let ligVerisi = {};
 
 client.once('ready', () => {
-    console.log(`🚀 25 Dakikalık Gerçek Zamanlı Maç Motoru Aktif: ${client.user.tag}`);
+    console.log(`🚀 Kadro Koruyucu ve Dakika/Saniye Göstergeli Maç Motoru Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -27,7 +27,7 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
 
     // ==========================================
-    // 1. .takimkur KOMUTU
+    // 1. .takimkur KOMUTU (Dokunulmadı)
     // ==========================================
     if (prefix === '.' && (command === 'takimkur' || command === 'takımkur')) {
         const takimAdi = args.join(' ').trim();
@@ -43,7 +43,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 2. .oyuncuekle KOMUTU
+    // 2. .oyuncuekle KOMUTU (Dokunulmadı)
     // ==========================================
     if (prefix === '.' && command === 'oyuncuekle') {
         const metin = args.join(' ');
@@ -65,7 +65,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 3. .kadro KOMUTU
+    // 3. .kadro KOMUTU (Dokunulmadı)
     // ==========================================
     if (prefix === '.' && command === 'kadro') {
         const takimAdi = args.join(' ').trim();
@@ -83,7 +83,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 4. .takimliste KOMUTU
+    // 4. .takimliste KOMUTU (Dokunulmadı)
     // ==========================================
     if (prefix === '.' && (command === 'takimliste' || command === 'takımliste')) {
         const tumTakimlar = Object.keys(ligVerisi);
@@ -95,11 +95,11 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 5. .macbaslat KOMUTU (TAM 25 DAKİKA / 2500 SANİYE)
+    // 5. .macbaslat KOMUTU (YENİ GÖSTERGELİ MAÇ MOTORU)
     // ==========================================
     if (prefix === '.' && (command === 'maçbaşlat' || command === 'macbaslat')) {
         const macMetni = args.join(' ');
-        if (!macMetni || !macMetni.includes('vs')) return message.reply('❌ **Hata:** Örnek: `.macbaslat Galatasaray vs Dortmund`');
+        if (!macMetni || !macMetni.includes('vs')) return message.reply('❌ **Hata:** Örnek: `.macbaslat Juventus vs Dortmund`');
 
         const takimlar = macMetni.split('vs');
         const takimA = takimlar[0].trim();
@@ -110,15 +110,17 @@ client.on('messageCreate', async (message) => {
         let skorA = 0;
         let skorB = 0;
         let mevcutDakika = 0;
+        let gecenSaniye = 0;
 
         const baslangicEmbed = new EmbedBuilder()
             .setTitle('🏟️ Mücadele Başladı!')
-            .setDescription(`**${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n🟢 Hakem düdüğü çaldı, 25 dakikalık dev simülasyon başladı!`)
+            .setDescription(`**${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n🟢 Hakem düdüğü çaldı, 25 dakikalık (2500 saniye) dev simülasyon başladı!`)
             .setColor(0x2ECC71)
-            .setFooter({ text: 'Maç Süresi: Tam 25 Dakika sürecektir (2500 saniye).' });
+            .setFooter({ text: 'Başlangıç | Süre: 0s' });
 
         await message.channel.send({ embeds: [baslangicEmbed] });
 
+        // Kurduğun Kadrolardan Rastgele Seçen Fonksiyon
         const olayUret = (dakika) => {
             const oyuncuSec = (takim) => {
                 if (ligVerisi[takim] && ligVerisi[takim].oyuncular.length > 0) {
@@ -131,54 +133,56 @@ client.on('messageCreate', async (message) => {
 
             const sans = Math.random();
 
-            if (sans < 0.15) { // GOL
+            if (sans < 0.15) { // GOL VE ASİST
                 const golAtan = Math.random() > 0.5 ? takimA : takimB;
                 let golMetni = "";
                 if (golAtan === takimA) {
                     skorA++;
-                    golMetni = `⚽ **GOL! [Dk: ${dakika}']** ${oyuncuSec(takimA)} topu ağlara gönderdi! Asist: ${oyuncuSec(takimA)}. \n📊 **Skor:** **${takimA}** ${skorA} - ${skorB} **${takimB}**`;
+                    golMetni = `⚽ **GOL!** ${oyuncuSec(takimA)} topu ağlara gönderdi! Asist: ${oyuncuSec(takimA)}.`;
                 } else {
                     skorB++;
-                    golMetni = `⚽ **GOL! [Dk: ${dakika}']** ${oyuncuSec(takimB)} fileleri sarstı! Asist: ${oyuncuSec(takimB)}. \n📊 **Skor:** **${takimA}** ${skorA} - ${skorB} **${takimB}**`;
+                    golMetni = `⚽ **GOL!** ${oyuncuSec(takimB)} fileleri sarstı! Asist: ${oyuncuSec(takimB)}.`;
                 }
                 return { m: golMetni, c: 0x2ECC71 };
             } else if (sans < 0.30) { // KURTARIŞ
-                return { m: `🧤 **Müthiş Kurtarış! [Dk: ${dakika}']** ${oyuncuSec(Math.random() > 0.5 ? takimA : takimB)} kalesinde devleşti!`, c: 0x3498DB };
+                return { m: `🧤 **Müthiş Kurtarış!** ${oyuncuSec(Math.random() > 0.5 ? takimA : takimB)} kalesinde devleşti, mutlak golü çıkardı!`, c: 0x3498DB };
             } else if (sans < 0.42) { // MÜCADELE
-                return { m: `⚔️ **Kıran Kırana Mücadele! [Dk: ${dakika}']** İki takım oyuncuları arasında orta sahada büyük savaş var.`, c: 0x95A5A6 };
+                return { m: `⚔️ **Kıran Kırana Mücadele!** İki takım oyuncuları arasında orta sahada kıyasıya bir taktik savaş var.`, c: 0x95A5A6 };
             } else if (sans < 0.52) { // SARI KART
-                return { m: `🟨 **Sarı Kart! [Dk: ${dakika}']** Hakem sert faul sonrası ${oyuncuSec(Math.random() > 0.5 ? takimA : takimB)} oyuncusuna sarı kart çıkardı!`, c: 0xF1C40F };
+                return { m: `🟨 **Sarı Kart!** Hakem sert faul sonrası ${oyuncuSec(Math.random() > 0.5 ? takimA : takimB)} oyuncusuna sarı kart çıkardı!`, c: 0xF1C40F };
             } else if (sans < 0.60) { // KIRMIZI KART
-                return { m: `🟥 **Kırmızı Kart! [Dk: ${dakika}']** Şok gelişme! ${oyuncuSec(Math.random() > 0.5 ? takimA : takimB)} kırmızı kartla oyun dışı!`, c: 0x960018 };
-            } else if (sans < 0.72) { // VAR
-                return { m: `🖥️ **VAR İncelemesi! [Dk: ${dakika}']** Hakem ekranın başına gitti... Karar değişmedi.`, c: 0x9B59B6 };
+                return { m: `🟥 **Kırmızı Kart!** Şok gelişme! ${oyuncuSec(Math.random() > 0.5 ? takimA : takimB)} doğrudan kırmızı kartla oyun dışı!`, c: 0x960018 };
+            } else if (sans < 0.72) { // VAR HAKEM
+                return { m: `🖥️ **VAR İncelemesi!** Ceza sahası içindeki şüpheli pozisyon için hakem VAR ekranına gitti... Karar değişmedi.`, c: 0x9B59B6 };
             } else if (sans < 0.82) { // KAVGA
-                return { m: `🔥 **Saha Karıştı! [Dk: ${dakika}']** Oyuncular birbirine girdi, hakem ortalığı yatıştırıyor!`, c: 0xE67E22 };
-            } else { // POZİSYON
-                return { m: `🏃 **Atak Kaçtı! [Dk: ${dakika}']** Tehlikeli gelişen hücumda top dışarı çıktı.`, c: 0x7F8C8D };
+                return { m: `🔥 **Saha Karıştı!** Sert müdahale sonrası oyuncular birbirine girdi, hakem ortalığı yatıştırmaya çalışıyor!`, c: 0xE67E22 };
+            } else { // NORMAL ATRAKSİYON
+                return { m: `🏃 **Atak Kaçtı!** Gelişen tehlikeli hücumda son vuruş başarısız, top dışarı çıktı.`, c: 0x7F8C8D };
             }
         };
 
-        // TAM 100 SANİYEDE BİR TETİKLENİR (100000 ms)
-        // Toplam 25 adım sürecek -> 25 * 100 = 2500 saniye (25 dakika gerçek zaman)
+        // TAM 100 SANİYEDE BİR YENİ MESAJ ATAR (100000 ms)
         const macDongusu = setInterval(async () => {
             mevcutDakika++;
+            gecenSaniye += 100;
 
             const olay = olayUret(mevcutDakika);
+            
             const olayEmbed = new EmbedBuilder()
-                .setTitle(`🎙️ Canlı Anlatım - Dk: ${mevcutDakika}'`)
-                .setDescription(olay.m)
-                .setColor(olay.c);
+                .setTitle(`🎙️ Canlı Anlatım Paneli`)
+                .setDescription(`📊 **Güncel Skor:** **${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n⏱️ **Maç Dakikası:** \`${mevcutDakika}'\`\n⏱️ **Geçen Gerçek Süre:** \`${gecenSaniye} Saniye\`\n\n📢 **Pozisyon:** ${olay.m}`)
+                .setColor(olay.c)
+                .setFooter({ text: `Gerçek zamanlı Reality & Crusy League simülasyonu` });
 
-            // HER POZİSYON AYRI MESAJ OLARAK ATILIR
+            // AYRI MESAJ OLARAK GÖNDERİLİR
             await message.channel.send({ embeds: [olayEmbed] }).catch(e => console.error(e));
 
-            // 25. Dakikada maçı bitir
+            // 25. dakikada (2500 saniye) maçı bitir
             if (mevcutDakika >= 25) {
                 clearInterval(macDongusu);
                 aktifMaclar.delete(message.channel.id);
 
-                let sonucMetni = `🏁 **Düdük Çaldı, Maç Bitti!** \n\n📊 **Final Skoru:** **${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n`;
+                let sonucMetni = `🏁 **Düdük Çaldı, Maç Bitti!** \n\n📊 **Final Skoru:** **${takimA}** ${skorA} - ${skorB} **${takimB}**\n⏱️ **Toplam Süre:** \`${gecenSaniye} Saniye\`\n\n`;
                 if (skorA > skorB) sonucMetni += `🎉 Kazanan: **${takimA}**`;
                 else if (skorB > skorA) sonucMetni += `🎉 Kazanan: **${takimB}**`;
                 else sonucMetni += `🤝 Mücadele berabere bitti!`;
@@ -187,7 +191,7 @@ client.on('messageCreate', async (message) => {
                 await message.channel.send({ embeds: [bitisEmbed] });
             }
 
-        }, 100000); // 100 Saniye gecikme
+        }, 100000); // 100 Saniye Gecikme
 
         aktifMaclar.set(message.channel.id, {
             dongu: macDongusu,
@@ -199,7 +203,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 6. !durdurmac KOMUTU
+    // 6. !durdurmac KOMUTU (Dokunulmadı)
     // ==========================================
     if (prefix === '!' && (command === 'durdurmac' || command === 'durdurmaç')) {
         const macVerisi = aktifMaclar.get(message.channel.id);
@@ -217,4 +221,4 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
-                    
+            
