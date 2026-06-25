@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
+// Botun sunucudaki üyeleri eksiksiz tarayabilmesi için gerekli tüm Intent'leri açıyoruz
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -9,11 +10,14 @@ const client = new Client({
     ]
 });
 
+// Bot aktif olduğunda Railway konsoluna yazdırılacak kısım
 client.once('ready', () => {
-    console.log(`🚀 Lig botu Railway üzerinde aktif: ${client.user.tag}`);
+    console.log(`🚀 Lig botu Railway üzerinde sorunsuz aktif edildi: ${client.user.tag}`);
 });
 
+// Komut Dinleyici Sistemi
 client.on('messageCreate', async (message) => {
+    // Botların kendi mesajlarına yanıt vermesini engeller ve sadece "." ile başlayanları dinler
     if (message.author.bot || !message.content.startsWith('.')) return;
 
     const args = message.content.slice(1).trim().split(/ +/);
@@ -30,7 +34,7 @@ client.on('messageCreate', async (message) => {
             .addFields(
                 { name: '🔍 Mevki & Ülke Arama', value: '`.ara <mevki/bayrak>`\n*Örnek:* `.ara SNT`, `.ara sağ bek`, `.ara 🇧🇷`', inline: false },
                 { name: '👤 İsim ile Oyuncu Arama', value: '`.ara <oyuncu_adı>`\n*Örnek:* `.ara V.júnior`, `.ara Çağatay`', inline: false },
-                { name: 'ℹ️ Kısaltma İpuçları', value: '`sağ bek` = SB, `sol bek` = SLB, `santrafor` = SNT', inline: true }
+                { name: 'ℹ️ Kısaltma İpuçları', value: '`sağ bek` = SB, `sol bek` = SLB, `stoper` = STP, `santrafor` = SNT, `kaleci` = KL', inline: true }
             )
             .setFooter({ text: 'Sistem 7/24 Aktif • Keyifli RP\'ler!' });
 
@@ -38,7 +42,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 2. .ara KOMUTU (Gelişmiş Filtreleme & İsim Arama)
+    // 2. .ara KOMUTU (Gelişmiş & Önbellek Sorunu Olmayan)
     // ==========================================
     if (command === 'ara') {
         let kriter = args.join(' ');
@@ -47,8 +51,8 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ **Hata:** Ne aratmak istiyorsun kanka? Yazman lazım.\n*Örnek:* `.ara sağ bek` veya `.ara V.júnior` veya `.ara 🇲🇫`');
         }
 
-        // Türkçe yazılan uzun mevkileri sistemin tanıması için kısaltmalara veya standart terimlere eşliyoruz
-        const kriterLower = kriter.toLowerCase();
+        // Türkçe uzun yazımları takma adlardaki standart kısaltmalara otomatik eşliyoruz
+        const kriterLower = kriter.toLowerCase().trim();
         if (kriterLower === 'sağ bek' || kriterLower === 'sag bek') kriter = 'SB';
         if (kriterLower === 'sol bek') kriter = 'SLB';
         if (kriterLower === 'stoper') kriter = 'STP';
@@ -56,14 +60,14 @@ client.on('messageCreate', async (message) => {
         if (kriterLower === 'kaleci') kriter = 'KL';
 
         try {
-            // Sunucudaki tüm üyeleri güncel olarak Discord'dan çekiyoruz
-            await message.guild.members.fetch();
+            // "Bazen yok" sorununu bitiren kısım: Sunucudaki TÜM üyeleri her aramada API'den canlı çekiyoruz
+            const tumUyeler = await message.guild.members.fetch({ force: true });
 
-            // Üyenin hem takma adını (displayName) hem de orijinal kullanıcı adını (username) aratılan kriterle eşleştiriyoruz
-            const sonuclar = message.guild.members.cache.filter(member => {
+            // Çekilen üyelerin takma adlarında ve kullanıcı adlarında büyük/küçük harf duyarsız arama yapıyoruz
+            const sonuclar = tumUyeler.filter(member => {
                 const takmaAd = member.displayName ? member.displayName.toLowerCase() : '';
                 const kullanıcıAdı = member.user.username ? member.user.username.toLowerCase() : '';
-                const aranan = kriter.toLowerCase();
+                const aranan = kriter.toLowerCase().trim();
 
                 return takmaAd.includes(aranan) || kullanıcıAdı.includes(aranan);
             });
@@ -72,7 +76,7 @@ client.on('messageCreate', async (message) => {
                 return message.reply(`❌ Kriterlere veya isme uygun (\`${args.join(' ')}\`) oyuncu sunucuda bulunamadı kanka!`);
             }
 
-            // İlk 20 sonucu listele (Discord yazı sınırına takılmamak için)
+            // İlk 20 sonucu listeliyoruz (Discord sınırlarına takılmamak için)
             const liste = sonuclar
                 .map(m => `👤 ${m.toString()} - \`${m.displayName}\``)
                 .slice(0, 20)
@@ -93,4 +97,5 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+// Bot Tokeni (Railway panelindeki Variables kısmına TOKEN adıyla eklediğin gizli kodla çalışır)
 client.login(process.env.TOKEN);
