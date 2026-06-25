@@ -1,3 +1,4 @@
+
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
 // Botun mesaj atabilmesi ve içerikleri okuyabilmesi için gerekli Intent'ler
@@ -23,12 +24,12 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
 
     // ==========================================
-    // YAŞASIN FUTBOL: .mac-baslat KOMUTU
+    // YAŞASIN FUTBOL: .maçbaşlat KOMUTU
     // ==========================================
-    if (command === 'mac-baslat' || command === 'maç-başlat') {
+    if (command === 'maçbaşlat' || command === 'macbaslat') {
         const macMetni = args.join(' ');
         if (!macMetni || !macMetni.includes('vs')) {
-            return message.reply('❌ **Hata:** Lütfen takımları doğru yaz kanka! \n*Örnek:* `.mac-baslat Anadolu FK vs Shadow Wolves`');
+            return message.reply('❌ **Hata:** Lütfen takımları doğru yaz kanka! \n*Örnek:* `.maçbaşlat Anadolu FK vs Shadow Wolves`');
         }
 
         const takimlar = macMetni.split('vs');
@@ -113,4 +114,3 @@ client.on('messageCreate', async (message) => {
 
 // Railway'deki TOKEN değişkeniyle giriş yapar
 client.login(process.env.TOKEN);
-                    
