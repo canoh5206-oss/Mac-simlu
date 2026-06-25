@@ -1,4 +1,4 @@
-         const { 
+const { 
     Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
 } = require('discord.js');
 
@@ -64,7 +64,7 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (Görseldeki gibi Embedli ama Sessiz/Bildirimsiz Etiket Sürümü) ---
+    // --- .ara KOMUTU (.ara SNT yazınca 18093.jpg'deki gibi bozmayan jilet sürüm) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
@@ -88,21 +88,16 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // Görseldeki gibi her satırın başına profil emojisi ekledim ve sadece mavi etiketleri listeledim
-        const liste = sonuclar.map(m => `👤 ${m.user.toString()}`).slice(0, 15).join('\n');
+        // m.displayName kullanarak ID numarası görünmesini engelledik ve sıfır bildirim sağladık
+        const liste = sonuclar.map(m => `👤 ${m.displayName}`).slice(0, 15).join('\n');
         
-        // Şık sarı/turuncu tonlarında bir kutu (Embed) oluşturuyoruz
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
             .setDescription(liste)
             .setColor(0xF1C40F)
             .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
 
-        // Hem kutulu gönderiyoruz hem de parse: [] sayesinde kimseye bildirim gitmiyor!
-        message.reply({ 
-            embeds: [embed],
-            allowedMentions: { parse: [] }
-        });
+        message.reply({ embeds: [embed] });
     }
 });
 
@@ -159,4 +154,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-     
+             
