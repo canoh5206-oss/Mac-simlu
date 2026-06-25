@@ -64,7 +64,7 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (.ara SNT yazınca 18093.jpg'deki gibi bozmayan jilet sürüm) ---
+    // --- .ara KOMUTU (Hem Kutulu, Hem Mavi Etiketli, Hem de Sıfır Bildirimli Gizli Sürüm) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
@@ -88,8 +88,8 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // m.displayName kullanarak ID numarası görünmesini engelledik ve sıfır bildirim sağladık
-        const liste = sonuclar.map(m => `👤 ${m.displayName}`).slice(0, 15).join('\n');
+        // Kanka hem sunucudaki takma adını yazdırıyoruz hem de yanına mavi etiketini basıyoruz!
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 15).join('\n');
         
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
@@ -97,7 +97,11 @@ client.on('messageCreate', async (message) => {
             .setColor(0xF1C40F)
             .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
 
-        message.reply({ embeds: [embed] });
+        // Hem mesaj yanıtı olarak gönderiyoruz hem de allowedMentions ile pinglemesini tamamen engelliyoruz!
+        message.reply({ 
+            embeds: [embed],
+            allowedMentions: { users: [], roles: [], parse: [] } 
+        });
     }
 });
 
@@ -154,4 +158,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-             
+
