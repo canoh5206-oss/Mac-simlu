@@ -1,5 +1,5 @@
 const { 
-    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
+    Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
 } = require('discord.js');
 
 const client = new Client({
@@ -9,34 +9,74 @@ const client = new Client({
     ]
 });
 
-const YETKILI_ROL_ID = '1512316879551860796'; // !k ve .ara kullanabilecek rol
-const YONETICI_ROL_ID = '1513269024866304091'; // Biletlere bakacak rol
-const TICKET_KATEGORI_ID = '1514324399900196895'; // Biletlerin açılacağı kategori
+const YETKILI_ROL_ID = '1512316879551860796';
+const ROL_MAP = {
+    'futbolcu': '1512130383070892094',
+    'baskan': '1512323399467139213',
+    'td': '1513270136176381953'
+};
 
 let kayitSayilari = {};
 
+// --- 🚫 KÜFÜR VE LİNK ENGEL LİSTESİ ---
+const KUFUR_LISTESI = [
+    'amk', 'aq', 'orospu', 'piç', 'sg', 'oç', 'skm', 'sikerim', 'sik', 'yarrak', 'meme', 
+    'pezevenk', 'göt', 'amına', 'çakayım', 'soktuğum', 'orospu çocuğu', 'kahpe'
+    // Kanka buraya sunucunda engellemek istediğin başka küfürler varsa tırnak içinde ekleyebilirsin.
+];
+
 client.once('ready', () => {
-    console.log(`✅ Kayıt, Arama ve Ticket Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Kayıt, Arama ve Koruma Sistemi Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has('Administrator');
+    // --- 🛡️ OTOMATİK KÜFÜR VE LİNK KORUMA MODÜLÜ ---
+    const mesajIcerik = message.content.toLowerCase().toLocaleLowerCase('tr-TR');
 
-    // --- 🎫 TICKET KURULUM KOMUTU (Sadece Yöneticiler) ---
-    if (message.content === '.ticket-kur' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_olustur').setLabel('📩 DESTEK TALEBİ OLUŞTUR').setStyle(ButtonStyle.Primary)
-        );
-        return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
+    // 1. Discord Sunucu Linki ve Genel Reklam Engeli
+    const linkKuralı = /(discord\.gg|discord\.com\/invite|http:\/\/|https:\/\/|www\.)/gi;
+    
+    // Eğer mesajı yazan kişi Kayıt Yetkilisi DEĞİLSE korumaya takılsın (Yetkililer link/küfür paylaşabilsin diye)
+    const yetkiliMi = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has('Administrator');
+
+    if (!yetkiliMi) {
+        // Link Kontrolü
+        if (linkKuralı.test(message.content)) {
+            try {
+                await message.delete();
+                const uyarEmbed = new EmbedBuilder()
+                    .setDescription(`⚠️ ${message.author}, Sunucumuzda reklam yapmak veya link paylaşmak yasaktır kanka!`)
+                    .setColor(0xFF0000);
+                return message.channel.send({ embeds: [uyarEmbed] }).then(msg => setTimeout(() => msg.delete().catch(e => {}), 5000));
+            } catch (e) { console.error('Mesaj silinemedi:', e); }
+        }
+
+        // Küfür Kontrolü
+        const kufurVarMi = KUFUR_LISTESI.some(kufur => {
+            // Kelime kelime kontrol eder, mesajın içinde küfür geçiyorsa yakalar
+            return mesajIcerik.includes(kufur);
+        });
+
+        if (kufurVarMi) {
+            try {
+                await message.delete();
+                const uyarEmbed = new EmbedBuilder()
+                    .setDescription(`🤬 ${message.author}, Sunucumuzda küfürlü konuşmak yasaktır kanka! Kelimelerimize dikkat edelim.`)
+                    .setColor(0xFF0000);
+                return message.channel.send({ embeds: [uyarEmbed] }).then(msg => setTimeout(() => msg.delete().catch(e => {}), 5000));
+            } catch (e) { console.error('Mesaj silinemedi:', e); }
+        }
     }
 
-    // Yetkili olmayanlar bundan sonraki komutları tetikleyemez
-    if (!isYetkili) return;
 
     // --- !k KOMUTU ---
     if (message.content.startsWith('!k')) {
+        if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
+            return message.reply('❌ **Hata:** Kayıt yapma yetkin yok kanka!');
+        }
+
         const hedonUye = message.mentions.members.first();
         if (!hedonUye) return message.reply('❌ Kullanıcıyı etiketle kanka!');
 
@@ -48,31 +88,32 @@ client.on('messageCreate', async (message) => {
 
         try {
             await hedonUye.setNickname(yeniTakmaAd);
-            
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`rol_futbolcu_${hedonUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`rol_baskan_${hededonUye.id || hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`rol_baskan_${hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`rol_td_${hedonUye.id}`).setLabel('📋 TD').setStyle(ButtonStyle.Danger)
             );
 
-            await message.reply({ 
-                content: `📝 **KAYIT BAŞARILI KANKA!**\n\n👤 **Kayıt Edilen Üye:** ${hedonUye}\n🏷️ **Yeni Takma Adı:** \`${yeniTakmaAd}\`\n\n👇 **Lütfen aşağıdaki butonlardan rolünü seç:**`, 
-                components: [row] 
-            });
+            const embed = new EmbedBuilder()
+                .setTitle('📝 Kayıt Başarılı')
+                .setDescription(`👤 **Üye:** ${hedonUye}\n🏷️ **Takma Ad:** \`${yeniTakmaAd}\`\n\n👇 **Rol seçimi:**`)
+                .setColor(0x00FF00);
 
+            await message.reply({ embeds: [embed], components: [row] });
             kayitSayilari[message.author.id] = (kayitSayilari[message.author.id] || 0) + 1;
-        } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
+        } catch (e) {
+            message.reply('❌ Bot yetkilerini kontrol et kanka!');
+        }
     }
 
     // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ Bir isim veya bayrak gir kanka!');
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+
+        await message.guild.members.fetch(); 
         
-        await message.guild.members.fetch();
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-        
-        // Fransa ve Martinik bayrakları için akıllı arama desteği korundu
         const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
         const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
@@ -81,70 +122,48 @@ client.on('messageCreate', async (message) => {
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
             if (fransaAraniyorMu) {
-                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz');
+                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
+                       username.includes('fransa') || username.includes('fransiz');
             }
-            return nick.includes(arananKucuk) || username.includes(arananKucuk);
+            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
         });
+
+        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
+
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
         
-        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı kanka.');
-        
-        const liste = sonuclar.map(m => `• **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
-        message.reply(`🔍 **ARAMA SONUÇLARI ("${aranan}")**\n\n${liste}\n\n📊 **Toplam:** ${sonuclar.size} kişi bulundu.`);
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
+            .setDescription(liste)
+            .setColor(0xF1C40F)
+            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
+
+        message.reply({ embeds: [embed] });
     }
 });
 
-// --- 🎟️ INTERACTION İŞLEYİCİ (Butonlar) ---
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
-
-    // Ticket Oluşturma Butonu
-    if (interaction.customId === 'ticket_olustur') {
-        try {
-            const kanalAdi = `ticket-${interaction.user.username}`;
-            const kanal = await interaction.guild.channels.create({
-                name: kanalAdi,
-                type: ChannelType.GuildText,
-                parent: TICKET_KATEGORI_ID,
-                permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                    { id: YONETICI_ROL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-                ]
-            });
-
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('ticket_kapat').setLabel('🔒 Bileti Kapat').setStyle(ButtonStyle.Danger)
-            );
-
-            await kanal.send({ content: `✅ Hoş geldin ${interaction.user}, <@&${YONETICI_ROL_ID}> ekibi seninle ilgilenecektir.`, components: [row] });
-            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı kanka: ${kanal}`, ephemeral: true });
-        } catch (e) {
-            return interaction.reply({ content: '❌ Bilet kanalı açılırken yetki hatası oluştu!', ephemeral: true });
-        }
-    }
-
-    // Ticket Kapatma Butonu
-    if (interaction.customId === 'ticket_kapat') {
-        await interaction.reply('🔒 Bilet kanalı 5 saniye içinde tamamen siliniyor...');
-        return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-    }
-
-    // Kayıt Rol Butonları
+    
     const [prefix, rolKey, userId] = interaction.customId.split('_');
-    const ROL_MAP = { 'futbolcu': '1512130383070892094', 'baskan': '1512323399467139213', 'td': '1513270136176381953' };
+    if (prefix !== 'rol') return;
 
-    if (prefix === 'rol') {
-        try {
-            const member = await interaction.guild.members.fetch(userId);
-            await member.roles.add(ROL_MAP[rolKey]);
-            const toplamKayit = kayitSayilari[interaction.user.id] || 0;
-            return interaction.reply({ content: `✅ **İşlem Başarılı:** ${member.displayName} kullanıcısına rolü verildi!\n📈 **Senin Toplam Kayıt Sayın:** \`${toplamKayit}\`` });
-        } catch (e) {
-            return interaction.reply({ content: '❌ Rol verilirken bir hata çıktı!', ephemeral: true });
-        }
+    try {
+        const member = await interaction.guild.members.fetch(userId);
+        if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı!', ephemeral: true });
+
+        await member.roles.add(ROL_MAP[rolKey]);
+        const toplamKayit = kayitSayilari[interaction.user.id] || 0;
+        
+        return interaction.reply({ 
+            content: `✅ **${member.displayName}** kullanıcısına rol verildi!\n📈 **Toplam Kayıt Sayın:** \`${toplamKayit}\`` 
+        });
+    } catch (e) {
+        return interaction.reply({ content: '❌ Rol verilirken bir hata oluştu!', ephemeral: true });
     }
 });
 
 client.login(process.env.TOKEN);
+);
 
                 
