@@ -1,5 +1,5 @@
 const { 
-    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
+    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
 } = require('discord.js');
 
 const client = new Client({
@@ -16,7 +16,7 @@ const TICKET_KATEGORI_ID = '1514324399900196895'; // Biletlerin açılacağı ka
 let kayitSayilari = {}; // Yetkililerin kayıt sayılarını tutar
 
 client.once('ready', () => {
-    console.log(`✅ Kayıt, Embedli Arama ve Ticket Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Sistem Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -24,7 +24,7 @@ client.on('messageCreate', async (message) => {
 
     const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has('Administrator');
 
-    // --- 🎫 TICKET KURULUM KOMUTU (Sadece Yöneticiler) ---
+    // --- 🎫 TICKET KURULUM KOMUTU ---
     if (message.content === '.ticket-kur' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('ticket_olustur').setLabel('📩 DESTEK TALEBİ OLUŞTUR').setStyle(ButtonStyle.Primary)
@@ -32,7 +32,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
     }
 
-    // Yetkili olmayanlar bundan sonraki komutları (.ara ve !k) tetikleyemez
+    // Yetkili kontrolü
     if (!isYetkili) return;
 
     // --- !k KOMUTU ---
@@ -64,10 +64,10 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (Hem Kutulu, Hem Mavi Etiketli, Hem de Sıfır Bildirimli Gizli Sürüm) ---
+    // --- .ara KOMUTU (Düz Yazı Yapıldı - Sayı Göstermez, Net Mavi Etiket Atar) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+        if (!aranan) return message.reply('❌ **Hata:** Bir kriter gir kanka. Örn: `.ara SNT`');
 
         await message.guild.members.fetch(); 
         
@@ -88,19 +88,13 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // Kanka hem sunucudaki takma adını yazdırıyoruz hem de yanına mavi etiketini basıyoruz!
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 15).join('\n');
+        // Düz yazı modunda etiket atıyoruz, Discord asla sayıya çeviremez!
+        const liste = sonuclar.map(m => `👤 <@${m.user.id}>`).slice(0, 15).join('\n');
         
-        const embed = new EmbedBuilder()
-            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
-            .setDescription(liste)
-            .setColor(0xF1C40F)
-            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
-
-        // Hem mesaj yanıtı olarak gönderiyoruz hem de allowedMentions ile pinglemesini tamamen engelliyoruz!
-        message.reply({ 
-            embeds: [embed],
-            allowedMentions: { users: [], roles: [], parse: [] } 
+        // Gönderirken allowedMentions: { parse: [] } var, yani mavi olacak ama kimseye bildirim gitmeyecek!
+        message.reply({
+            content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
+            allowedMentions: { parse: [] }
         });
     }
 });
@@ -109,7 +103,7 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
-    // Ticket Oluşturma Butonu
+    // Ticket Oluşturma
     if (interaction.customId === 'ticket_olustur') {
         try {
             const kanalAdi = `ticket-${interaction.user.username}`;
@@ -135,7 +129,7 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // Ticket Kapatma Butonu
+    // Ticket Kapatma
     if (interaction.customId === 'ticket_kapat') {
         await interaction.reply('🔒 Bilet kanalı 5 saniye içinde tamamen siliniyor...');
         return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
@@ -158,4 +152,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-
+                
