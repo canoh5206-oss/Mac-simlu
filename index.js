@@ -63,10 +63,8 @@ client.on('messageCreate', async (message) => {
             kayitSayilari[message.author.id] = (kayitSayilari[message.author.id] || 0) + 1;
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
-
-        // --- .ara KOMUTU (Temizlendi) ---
-    // --- .ara KOMUTU (Gizli Etiket Modu - Bildirim Gitmez) ---
-    if (// --- .ara KOMUTU ---
+  }):
+        // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
