@@ -1,3 +1,5 @@
+
+        
 const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
 } = require('discord.js');
@@ -19,7 +21,7 @@ const ROL_MAP = {
 let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Kayıt ve Arama Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Kayıt ve Gelişmiş Arama Sistemi Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -63,20 +65,31 @@ client.on('messageCreate', async (message) => {
     // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         const aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir isim veya bayrak gir kanka. Örn: `.ara pele` veya `.ara 🇧🇷`');
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara 🇫🇷`');
 
-        await message.guild.members.fetch(); // Tüm üyeleri çek
-        const sonuclar = message.guild.members.cache.filter(m => 
-            (m.nickname && m.nickname.includes(aranan)) || m.user.username.includes(aranan)
-        );
+        await message.guild.members.fetch(); // Sunucudaki tüm üyeleri güncelle/çek
+        
+        // Büyük-küçük harf duyarlılığını tamamen ortadan kaldırıyoruz (Türkçe karakter uyumlu)
+        const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
 
-        if (sonuclar.size === 0) return message.reply('🔍 Aradığın kriterde kimseyi bulamadım kanka.');
+        const sonuclar = message.guild.members.cache.filter(m => {
+            const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
+            const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
+            
+            // Eğer aranan şey direkt Fransa bayrağıysa veya metnin içinde geçiyorsa yakala
+            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
+        });
 
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 10).join('\n');
+        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
+
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
+        
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
-            .setDescription(liste || 'Bulunamadı.')
-            .setColor(0xF1C40F);
+            .setDescription(liste)
+            .setColor(0xF1C40F)
+            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
+
         message.reply({ embeds: [embed] });
     }
 });
@@ -94,4 +107,3 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-;
