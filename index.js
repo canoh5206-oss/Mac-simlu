@@ -31,8 +31,8 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ **Hata:** Kayıt yapma yetkin yok kanka!');
         }
 
-        const hedefUye = message.mentions.members.first();
-        if (!hedefUye) return message.reply('❌ Kullanıcıyı etiketle kanka!');
+        const hedonUye = message.mentions.members.first();
+        if (!hedonUye) return message.reply('❌ Kullanıcıyı etiketle kanka!');
 
         const metinKismi = message.content.substring(message.content.indexOf('>') + 1).trim();
         const parcalar = metinKismi.split('|').map(p => p.trim());
@@ -41,16 +41,16 @@ client.on('messageCreate', async (message) => {
         const yeniTakmaAd = `${parcalar[0]} | ${parcalar[1].toUpperCase()} | ${parcalar[2]} | ${parcalar[3]}`;
 
         try {
-            await hedefUye.setNickname(yeniTakmaAd);
+            await hedonUye.setNickname(yeniTakmaAd);
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`rol_futbolcu_${hedefUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`rol_baskan_${hedefUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`rol_td_${hedefUye.id}`).setLabel('📋 TD').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`rol_futbolcu_${hedonUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId(`rol_baskan_${hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`rol_td_${hedonUye.id}`).setLabel('📋 TD').setStyle(ButtonStyle.Danger)
             );
 
             const embed = new EmbedBuilder()
                 .setTitle('📝 Kayıt Başarılı')
-                .setDescription(`👤 **Üye:** ${hedefUye}\n🏷️ **Takma Ad:** \`${yeniTakmaAd}\`\n\n👇 **Rol seçimi:**`)
+                .setDescription(`👤 **Üye:** ${hedonUye}\n🏷️ **Takma Ad:** \`${yeniTakmaAd}\`\n\n👇 **Rol seçimi:**`)
                 .setColor(0x00FF00);
 
             await message.reply({ embeds: [embed], components: [row] });
@@ -68,23 +68,17 @@ client.on('messageCreate', async (message) => {
         await message.guild.members.fetch(); 
         
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-        
-        // Fransa İçin Özel Eşleştirme Listesi
-        // Kullanıcı bunlardan birini aratırsa sunucuda hem 🇲🇫 hem 🇫🇷 hem de yazıları arayacak
         const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
-        const fransaAraniyor Mu = fransaKelimeleri.includes(arananKucuk);
+        const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
         const sonuclar = message.guild.members.cache.filter(m => {
             const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
-            // Eğer Fransa aranıyorsa, takma adında Martinik bayrağı veya Fransa bayrağı olan herkesi kapsa
             if (fransaAraniyorMu) {
                 return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
                        username.includes('fransa') || username.includes('fransiz');
             }
-
-            // Normal arama kriterleri (Diğer ülkeler ve isimler için)
             return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
         });
 
@@ -104,14 +98,23 @@ client.on('messageCreate', async (message) => {
 
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
-    const [_, rolKey, userId] = interaction.customId.split('_');
-    const member = await interaction.guild.members.fetch(userId);
-    await member.roles.add(ROL_MAP[rolKey]);
     
-    const toplamKayit = kayitSayilari[interaction.user.id] || 0;
-    interaction.reply({ 
-        content: `✅ **${member.displayName}** kullanıcısına rol verildi!\n📈 **Toplam Kayıt Sayın:** \`${toplamKayit}\`` 
-    });
+    const [prefix, rolKey, userId] = interaction.customId.split('_');
+    if (prefix !== 'rol') return;
+
+    try {
+        const member = await interaction.guild.members.fetch(userId);
+        if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı!', ephemeral: true });
+
+        await member.roles.add(ROL_MAP[rolKey]);
+        const toplamKayit = kayitSayilari[interaction.user.id] || 0;
+        
+        return interaction.reply({ 
+            content: `✅ **${member.displayName}** kullanıcısına rol verildi!\n📈 **Toplam Kayıt Sayın:** \`${toplamKayit}\`` 
+        });
+    } catch (e) {
+        return interaction.reply({ content: '❌ Rol verilirken bir hata oluştu!', ephemeral: true });
+    }
 });
 
 client.login(process.env.TOKEN);
