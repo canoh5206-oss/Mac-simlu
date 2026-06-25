@@ -1,18 +1,17 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
-// Botun sunucudaki üyeleri ve mesajları eksiksiz okuyabilmesi için gerekli tüm Intent'leri açıyoruz
+// Botun mesaj atabilmesi ve içerikleri okuyabilmesi için gerekli Intent'ler
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.MessageContent
     ]
 });
 
 // Bot aktif olduğunda Railway konsoluna yazdırılacak kısım
 client.once('ready', () => {
-    console.log(`🚀 Lig botu Railway üzerinde sorunsuz aktif edildi: ${client.user.tag}`);
+    console.log(`🏟️ Maç Simülatör Botu Railway üzerinde aktif: ${client.user.tag}`);
 });
 
 // Komut Dinleyici Sistemi
@@ -24,98 +23,94 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
 
     // ==========================================
-    // 1. .yardim KOMUTU
+    // YAŞASIN FUTBOL: .mac-baslat KOMUTU
     // ==========================================
-    if (command === 'yardim' || command === 'yardım') {
-        const yardimEmbed = new EmbedBuilder()
-            .setTitle('📋 Reality & Crusy League - Komut Kılavuzu')
+    if (command === 'mac-baslat' || command === 'maç-başlat') {
+        const macMetni = args.join(' ');
+        if (!macMetni || !macMetni.includes('vs')) {
+            return message.reply('❌ **Hata:** Lütfen takımları doğru yaz kanka! \n*Örnek:* `.mac-baslat Anadolu FK vs Shadow Wolves`');
+        }
+
+        const takimlar = macMetni.split('vs');
+        const takimA = takimlar[0].trim();
+        const takimB = takimlar[1].trim();
+
+        let skorA = 0;
+        let skorB = 0;
+        let mevcutDakika = 0;
+
+        // Maç başladı mesajı
+        const baslangicEmbed = new EmbedBuilder()
+            .setTitle('🏟️ Maç Başladı!')
+            .setDescription(`**${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n🟢 Hakem düdüğü çaldı ve zorlu mücadele başladı!`)
             .setColor(0x2ECC71)
-            .setDescription('Ligimizdeki oyuncuları aramak ve filtrelemek için aşağıdaki komutları kullanabilirsin kanka:')
-            .addFields(
-                { name: '🔍 Mevki & Ülke Arama', value: '`.ara <mevki/bayrak>`\n*Örnek:* `.ara SNT`, `.ara sağ bek`, `.ara 🇧🇷`', inline: false },
-                { name: '👤 İsim ile Oyuncu Arama', value: '`.ara <oyuncu_adı>`\n*Örnek:* `.ara V.júnior`, `.ara Çağatay`', inline: false },
-                { name: 'ℹ️ Eklenen Mevki Kısaltmaları', value: '`SNT`, `SĞK`, `SLK`, `OSS`, `SGB`, `SLB`, `STP`, `KL`', inline: true }
-            )
-            .setFooter({ text: 'Sistem 7/24 Aktif • Keyifli RP\'ler!' });
+            .setFooter({ text: 'Maç Süresi: 25 Dakika (Toplam 2500 Saniye)' });
 
-        return message.reply({ embeds: [yardimEmbed] });
-    }
+        const canlıMesaj = await message.channel.send({ embeds: [baslangicEmbed] });
 
-    // ==========================================
-    // 2. .ara KOMUTU (Gelişmiş & Önbellek Sorunu Olmayan)
-    // ==========================================
-    if (command === 'ara') {
-        let arananKelime = args.join(' ');
+        // Maç içi yapay zeka spiker yorumları
+        const olaylar = [
+            "Tehlikeli bir atak! Kaleci son anda topu kornere çeliyor.",
+            "Orta sahada kıran kırana bir mücadele var.",
+            "Sert bir müdahale! Hakem oyuncuyu sözlü olarak uyarıyor.",
+            "Ceza sahası dışından sert bir şut! Top az farkla dışarıda.",
+            "Savunmanın büyük hatası! Ancak forvet oyuncusu topu ıskalıyor.",
+            "Müthiş bir ara pası! Savunma son anda araya giriyor.",
+            "Hakem serbest vuruş kararı veriyor.",
+            "Oyunda tempo bu dakikalarda biraz düştü."
+        ];
 
-        if (!arananKelime) {
-            return message.reply('❌ **Hata:** Ne aratmak istiyorsun kanka? Yazman lazım.\n*Örnek:* `.ara SNT`, `.ara SĞK`, `.ara 🇲🇫`');
-        }
+        // 25 dakikalık döngü (Her 1 oyun dakikası = 100 saniye = 100000 milisaniye)
+        const macDongusu = setInterval(async () => {
+            mevcutDakika++;
 
-        // İstediğin tüm mevkiler ve Türkçe uzun yazımları için kelime haritası
-        let kriter = arananKelime;
-        const kontrol = arananKelime.toUpperCase().trim();
-        const mevkiHaritasi = {
-            'SANTRAFOR': 'SNT', 'SNT': 'SNT',
-            'SAĞ AÇIK': 'SĞK', 'SAG AÇIK': 'SĞK', 'SĞK': 'SĞK',
-            'SOL AÇIK': 'SLK', 'SLK': 'SLK',
-            'ORTA SAHA': 'OSS', 'ORTASHA': 'OSS', 'OSS': 'OSS',
-            'SAĞ BEK': 'SGB', 'SAG BEK': 'SGB', 'SGB': 'SGB',
-            'SOL BEK': 'SLB', 'SLB': 'SLB',
-            'STOPER': 'STP', 'STP': 'STP',
-            'KALECİ': 'KL', 'KALE': 'KL', 'KL': 'KL'
-        };
+            let durumMesaji = "";
+            const sans = Math.random();
 
-        // Eğer girilen kelime listede varsa (Örn: "Sağ Bek" yazıldıysa) bunu "SGB"ye çevirir
-        if (mevkiHaritasi[kontrol]) {
-            kriter = mevkiHaritasi[kontrol];
-        }
-
-        try {
-            // Önbellek (Cache) hatasını bitiren kısım: Sunucudaki TÜM üyeleri API'den canlı çekiyoruz
-            const tumUyeler = await message.guild.members.fetch({ force: true });
-            
-            // Düzenli ifade (Regex) ile girdinin emoji/bayrak içerip içermediğini kontrol ediyoruz
-            const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
-            const emojiVarMi = emojiRegex.test(kriter);
-
-            const sonuclar = tumUyeler.filter(member => {
-                const takmaAd = member.displayName || '';
-                const kullaniciAdi = member.user.username || '';
-
-                if (emojiVarMi) {
-                    // Bayraklarda kod yapısının bozulmaması için doğrudan ham haliyle aratıyoruz
-                    return takmaAd.includes(kriter) || kullaniciAdi.includes(kriter);
-                } else {
-                    // Normal metinlerde (SNT, İsim vb.) büyük/küçük harf duyarsız aratıyoruz
-                    return takmaAd.toUpperCase().includes(kriter.toUpperCase()) || 
-                           kullaniciAdi.toUpperCase().includes(kriter.toUpperCase());
-                }
-            });
-
-            if (sonuclar.size === 0) {
-                return message.reply(`❌ Kriterlere veya isme uygun (\`${arananKelime}\`) oyuncu bulunamadı kanka!`);
+            if (sans < 0.12) { // %12 ihtimalle Takım A gol atar
+                skorA++;
+                durumMesaji = `⚽ **GOL!** ${takimA} oyuncuları müthiş bir organizasyonla topu ağlara gönderdi!`;
+            } else if (sans < 0.24) { // %12 ihtimalle Takım B gol atar
+                skorB++;
+                durumMesaji = `⚽ **GOL!** ${takimB} hızlı hücumla aradığı golü buluyor!`;
+            } else if (sans < 0.32) { // %8 ihtimalle Sarı Kart
+                durumMesaji = "🟨 **Sarı Kart!** Hakem sert müdahale sonrası kartını çıkardı.";
+            } else { // Normal pozisyon
+                durumMesaji = olaylar[Math.floor(Math.random() * olaylar.length)];
             }
 
-            // İlk 20 sonucu listeliyoruz (Discord sınırlarına takılmamak için)
-            const liste = sonuclar
-                .map(m => `👤 ${m.toString()} - \`${m.displayName}\``)
-                .slice(0, 20)
-                .join('\n');
+            // Maçın bitiş kontrolü (25. dakika)
+            if (mevcutDakika >= 25) {
+                clearInterval(macDongusu); // Zamanlayıcıyı kapat
 
-            const embed = new EmbedBuilder()
-                .setTitle('🔍 Oyuncu / Mevki Arama Sonuçları')
-                .setDescription(`🔎 **Aranan:** \`${arananKelime}\` ${kriter !== arananKelime ? `(\`${kriter}\` olarak arandı)` : ''}\n\n${liste}`)
-                .setColor(0x3498db)
-                .setFooter({ text: 'Crusy & Reality League Arama Motoru' });
+                let bitisAciklamasi = `🏁 **Maç Bitti!** \n\n Müthiş mücadele sona erdi. `;
+                if (skorA > skorB) bitisAciklamasi += `🎉 Kazanan: **${takimA}**`;
+                else if (skorB > skorA) bitisAciklamasi += `🎉 Kazanan: **${takimB}**`;
+                else bitisAciklamasi += `🤝 Dostluk kazandı, maç berabere bitti!`;
 
-            await message.reply({ embeds: [embed] });
+                const bitisEmbed = new EmbedBuilder()
+                    .setTitle('🏁 Maç Sonucu')
+                    .setDescription(`**${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n${bitisAciklamasi}`)
+                    .setColor(0xE74C3C)
+                    .setFooter({ text: `⏱️ Maç sona erdi (2500 saniye sürdü)` });
 
-        } catch (error) {
-            console.error(error);
-            await message.reply('❌ Oyuncular taranırken teknik bir hata oluştu kanka, Railway loglarını kontrol et!');
-        }
+                await canlıMesaj.edit({ embeds: [bitisEmbed] }).catch(err => console.error(err));
+                return;
+            }
+
+            // Her 100 saniyede bir paneli güncelleme
+            const guncelEmbed = new EmbedBuilder()
+                .setTitle('🏟️ Canlı Skor')
+                .setDescription(`**${takimA}** ${skorA} - ${skorB} **${takimB}**\n\n⏱️ **Dakika:** \`${mevcutDakika}'\`\n\n🎙️ ${durumMesaji}`)
+                .setColor(0x3498DB)
+                .setFooter({ text: `Maç devam ediyor...` });
+
+            await canlıMesaj.edit({ embeds: [guncelEmbed] }).catch(err => console.error("Mesaj güncellenemedi:", err));
+
+        }, 100000); // 100 saniyede bir tetiklenir
     }
 });
 
-// Bot Tokeni (Railway panelindeki Variables kısmına TOKEN adıyla eklediğin gizli kodla çalışır)
+// Railway'deki TOKEN değişkeniyle giriş yapar
 client.login(process.env.TOKEN);
+                    
