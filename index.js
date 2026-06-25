@@ -66,13 +66,14 @@ client.on('messageCreate', async (message) => {
 
         // --- .ara KOMUTU (Temizlendi) ---
     // --- .ara KOMUTU (Gizli Etiket Modu - Bildirim Gitmez) ---
+    if (// --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ Bir isim veya bayrak gir kanka!');
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+
+        await message.guild.members.fetch(); 
         
-        await message.guild.members.fetch();
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-        
         const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
         const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
@@ -81,23 +82,24 @@ client.on('messageCreate', async (message) => {
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
             if (fransaAraniyorMu) {
-                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz');
+                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
+                       username.includes('fransa') || username.includes('fransiz');
             }
-            return nick.includes(arananKucuk) || username.includes(arananKucuk);
+            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
         });
-        
-        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı kanka.');
-        
-        // Burada m.user.toString() kullanarak etiket şeklinde listeliyoruz
-        const liste = sonuclar.map(m => `• ${m.user.toString()}`).slice(0, 15).join('\n');
-        
-        // allowedMentions: { parse: [] } sayesinde etiketler mavi görünür ama ASLA bildirim gitmez!
-        message.reply({
-            content: `🔍 **ARAMA SONUÇLARI ("${aranan}")**\n\n${liste}\n\n📊 **Toplam:** ${sonuclar.size} kişi bulundu.`,
-            allowedMentions: { parse: [] }
-        });
-    }
 
+        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
+
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
+            .setDescription(liste)
+            .setColor(0xF1C40F)
+            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
+
+        message.reply({ embeds: [embed] });
+    }
 });
 
 // --- 🎟️ INTERACTION İŞLEYİCİ (Butonlar) ---
