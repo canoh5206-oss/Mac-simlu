@@ -64,7 +64,7 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU ---
+        // --- .ara KOMUTU (Temizlendi) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ Bir isim veya bayrak gir kanka!');
@@ -72,7 +72,6 @@ client.on('messageCreate', async (message) => {
         await message.guild.members.fetch();
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
         
-        // Fransa ve Martinik bayrakları için akıllı arama desteği korundu
         const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
         const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
@@ -86,11 +85,13 @@ client.on('messageCreate', async (message) => {
             return nick.includes(arananKucuk) || username.includes(arananKucuk);
         });
         
-        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı kanka.');
+        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı ');
         
-        const liste = sonuclar.map(m => `• **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
+        // Kanka buradaki m.user.toString() kısmını sildim, artık çift isim basmayacak
+        const liste = sonuclar.map(m => `• **${m.displayName}**`).slice(0, 15).join('\n');
         message.reply(`🔍 **ARAMA SONUÇLARI ("${aranan}")**\n\n${liste}\n\n📊 **Toplam:** ${sonuclar.size} kişi bulundu.`);
     }
+
 });
 
 // --- 🎟️ INTERACTION İŞLEYİCİ (Butonlar) ---
@@ -117,7 +118,7 @@ client.on('interactionCreate', async (interaction) => {
             );
 
             await kanal.send({ content: `✅ Hoş geldin ${interaction.user}, <@&${YONETICI_ROL_ID}> ekibi seninle ilgilenecektir.`, components: [row] });
-            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı kanka: ${kanal}`, ephemeral: true });
+            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı l: ${kanal}`, ephemeral: true });
         } catch (e) {
             return interaction.reply({ content: '❌ Bilet kanalı açılırken yetki hatası oluştu!', ephemeral: true });
         }
