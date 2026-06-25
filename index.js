@@ -1,5 +1,5 @@
 const { 
-    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
+    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
 } = require('discord.js');
 
 const client = new Client({
@@ -24,7 +24,7 @@ client.on('messageCreate', async (message) => {
 
     const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has('Administrator');
 
-    // --- 🎫 TICKET KURULUM KOMUTU (Sadece Yöneticiler) ---
+    // --- 🎫 TICKET KURULUM KOMUTU ---
     if (message.content === '.ticket-kur' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('ticket_olustur').setLabel('📩 DESTEK TALEBİ OLUŞTUR').setStyle(ButtonStyle.Primary)
@@ -32,7 +32,6 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
     }
 
-    // Yetkili olmayanlar bundan sonraki komutları (.ara ve !k) tetikleyemez
     if (!isYetkili) return;
 
     // --- !k KOMUTU ---
@@ -64,7 +63,7 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (Sayı Hatası Vermeyen, Kesin Çözüm Sürümü) ---
+    // --- .ara KOMUTU (18094.jpg Görselindeki Orijinal Kusursuz Sürüm) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir kriter gir kanka. Örn: `.ara SNT`');
@@ -88,69 +87,19 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // Kanka burası düz yazı olarak gidiyor: Önce Takma Ad, sonra mavi etiket!
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 15).join('\n');
+        // Kanka sadece profil emojisi ve m.displayName basıyoruz! 
+        // İsimlerin arkasındaki o uzun "@" kısımları zaten sunucudaki adlarında kayıtlı olduğu için otomatik jilet gibi çıkacak!
+        const liste = sonuclar.map(m => `👤 ${m.displayName}`).slice(0, 15).join('\n');
         
-        // Bu şekilde hem mavi görünecek hem de alt satırdaki users: [] sayesinde asla bildirim (ping) gitmeyecek!
-        message.reply({
-            content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **Toplam ${sonuclar.size} kişi bulundu.**`,
-            allowedMentions: { users: [] }
-        });
-    }
-});
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
+            .setDescription(liste)
+            .setColor(0xF1C40F)
+            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
 
-// --- 🎟️ INTERACTION İŞLEYİCİ (Butonlar) ---
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-
-    // Ticket Oluşturma Butonu
-    if (interaction.customId === 'ticket_olustur') {
-        try {
-            const kanalAdi = `ticket-${interaction.user.username}`;
-            const kanal = await interaction.guild.channels.create({
-                name: kanalAdi,
-                type: ChannelType.GuildText,
-                parent: TICKET_KATEGORI_ID,
-                permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                    { id: YONETICI_ROL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-                ]
-            });
-
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('ticket_kapat').setLabel('🔒 Bileti Kapat').setStyle(ButtonStyle.Danger)
-            );
-
-            await kanal.send({ content: `✅ Hoş geldin ${interaction.user}, <@&${YONETICI_ROL_ID}> ekibi seninle ilgilenecektir.`, components: [row] });
-            return interaction.reply({ content: `🎫 Biletin başarıyla açıldı kanka: ${kanal}`, ephemeral: true });
-        } catch (e) {
-            return interaction.reply({ content: '❌ Bilet kanalı açılırken yetki hatası oluştu!', ephemeral: true });
-        }
+        // Temiz bir şekilde embed kutusunu gönderiyoruz, sıfır pingleme, sıfır sayı hatası!
+        message.reply({ embeds: [embed] });
     }
 
-    // Ticket Kapatma Butonu
-    if (interaction.customId === 'ticket_kapat') {
-        await interaction.reply('🔒 Bilet kanalı 5 saniye içinde tamamen siliniyor...');
-        return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-    }
-
-    // Kayıt Rol Butonları
-    const [prefix, rolKey, userId] = interaction.customId.split('_');
-    const ROL_MAP = { 'futbolcu': '1512130383070892094', 'baskan': '1512323399467139213', 'td': '1513270136176381953' };
-
-    if (prefix === 'rol') {
-        try {
-            const member = await interaction.guild.members.fetch(userId);
-            await member.roles.add(ROL_MAP[rolKey]);
-            const toplamKayit = kayitSayilari[interaction.user.id] || 0;
-            return interaction.reply({ content: `✅ **İşlem Başarılı:** ${member.displayName} kullanıcısına rolü verildi!\n📈 **Senin Toplam Kayıt Sayın:** \`${toplamKayit}\`` });
-        } catch (e) {
-            return interaction.reply({ content: '❌ Rol verilirken bir hata çıktı!', ephemeral: true });
-        }
-    }
-});
-
-client.login(process.env.TOKEN);
 
                     
