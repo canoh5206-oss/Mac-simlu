@@ -65,6 +65,7 @@ client.on('messageCreate', async (message) => {
     }
 
         // --- .ara KOMUTU (Temizlendi) ---
+    // --- .ara KOMUTU (Gizli Etiket Modu - Bildirim Gitmez) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ Bir isim veya bayrak gir kanka!');
@@ -85,11 +86,16 @@ client.on('messageCreate', async (message) => {
             return nick.includes(arananKucuk) || username.includes(arananKucuk);
         });
         
-        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı ');
+        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı kanka.');
         
-        // Kanka buradaki m.user.toString() kısmını sildim, artık çift isim basmayacak
-        const liste = sonuclar.map(m => `• **${m.displayName}**`).slice(0, 15).join('\n');
-        message.reply(`🔍 **ARAMA SONUÇLARI ("${aranan}")**\n\n${liste}\n\n📊 **Toplam:** ${sonuclar.size} kişi bulundu.`);
+        // Burada m.user.toString() kullanarak etiket şeklinde listeliyoruz
+        const liste = sonuclar.map(m => `• ${m.user.toString()}`).slice(0, 15).join('\n');
+        
+        // allowedMentions: { parse: [] } sayesinde etiketler mavi görünür ama ASLA bildirim gitmez!
+        message.reply({
+            content: `🔍 **ARAMA SONUÇLARI ("${aranan}")**\n\n${liste}\n\n📊 **Toplam:** ${sonuclar.size} kişi bulundu.`,
+            allowedMentions: { parse: [] }
+        });
     }
 
 });
