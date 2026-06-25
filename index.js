@@ -10,13 +10,13 @@ const client = new Client({
 });
 
 const YETKILI_ROL_ID = '1512316879551860796'; // !k ve .ara kullanabilecek rol
-const YONETICI_ROL_ID = '1513269024866304091'; // Biletlere bakacak yönetici rolü
+const YONETICI_ROL_ID = '1513269024866304091'; // Biletlere bakacak rol
 const TICKET_KATEGORI_ID = '1514324399900196895'; // Biletlerin açılacağı kategori
 
-let kayitSayilari = {}; // Yetkililerin kayıt sayılarını tutar
+let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Sistem Aktif: ${client.user.tag}`);
+    console.log(`✅ Kayıt, Arama ve Ticket Sistemi Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -24,7 +24,7 @@ client.on('messageCreate', async (message) => {
 
     const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has('Administrator');
 
-    // --- 🎫 TICKET KURULUM KOMUTU ---
+    // --- 🎫 TICKET KURULUM KOMUTU (Sadece Yöneticiler) ---
     if (message.content === '.ticket-kur' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('ticket_olustur').setLabel('📩 DESTEK TALEBİ OLUŞTUR').setStyle(ButtonStyle.Primary)
@@ -32,7 +32,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
     }
 
-    // Yetkili kontrolü
+    // Yetkili olmayanlar bundan sonraki komutları tetikleyemez
     if (!isYetkili) return;
 
     // --- !k KOMUTU ---
@@ -51,7 +51,7 @@ client.on('messageCreate', async (message) => {
             
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`rol_futbolcu_${hedonUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`rol_baskan_${hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`rol_baskan_${hededonUye.id || hedonUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`rol_td_${hedonUye.id}`).setLabel('📋 TD').setStyle(ButtonStyle.Danger)
             );
 
@@ -64,14 +64,15 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (Düz Yazı Yapıldı - Sayı Göstermez, Net Mavi Etiket Atar) ---
+    // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir kriter gir kanka. Örn: `.ara SNT`');
-
-        await message.guild.members.fetch(); 
+        if (!aranan) return message.reply('❌ Bir isim veya bayrak gir kanka!');
         
+        await message.guild.members.fetch();
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
+        
+        // Fransa ve Martinik bayrakları için akıllı arama desteği korundu
         const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
         const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
@@ -80,22 +81,15 @@ client.on('messageCreate', async (message) => {
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
             if (fransaAraniyorMu) {
-                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
-                       username.includes('fransa') || username.includes('fransiz');
+                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz');
             }
-            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
+            return nick.includes(arananKucuk) || username.includes(arananKucuk);
         });
-
-        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
-
-        // Düz yazı modunda etiket atıyoruz, Discord asla sayıya çeviremez!
-        const liste = sonuclar.map(m => `👤 <@${m.user.id}>`).slice(0, 15).join('\n');
         
-        // Gönderirken allowedMentions: { parse: [] } var, yani mavi olacak ama kimseye bildirim gitmeyecek!
-        message.reply({
-            content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
-            allowedMentions: { parse: [] }
-        });
+        if (sonuclar.size === 0) return message.reply('🔍 Kimse bulunamadı kanka.');
+        
+        const liste = sonuclar.map(m => `• **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
+        message.reply(`🔍 **ARAMA SONUÇLARI ("${aranan}")**\n\n${liste}\n\n📊 **Toplam:** ${sonuclar.size} kişi bulundu.`);
     }
 });
 
@@ -103,7 +97,7 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
-    // Ticket Oluşturma
+    // Ticket Oluşturma Butonu
     if (interaction.customId === 'ticket_olustur') {
         try {
             const kanalAdi = `ticket-${interaction.user.username}`;
@@ -129,7 +123,7 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // Ticket Kapatma
+    // Ticket Kapatma Butonu
     if (interaction.customId === 'ticket_kapat') {
         await interaction.reply('🔒 Bilet kanalı 5 saniye içinde tamamen siliniyor...');
         return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
@@ -152,4 +146,5 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+
                 
