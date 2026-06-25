@@ -9,26 +9,24 @@ const client = new Client({
     ]
 });
 
-// Ayarlar
-const YETKILI_ROL_ID = '1512316879551860796'; // Kayıt yapabileceklerin rol ID'si
+const YETKILI_ROL_ID = '1512316879551860796';
 const ROL_MAP = {
     'futbolcu': '1512130383070892094',
     'baskan': '1512323399467139213',
     'td': '1513270136176381953'
 };
 
-// Kayıt sayılarını tutan yer: { "kullaniciID": 5 }
 let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Kayıtçı Sistemi Hazır: ${client.user.tag}`);
+    console.log(`✅ Kayıt ve Arama Sistemi Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
+    // --- !k KOMUTU ---
     if (message.content.startsWith('!k')) {
-        // 1. Yetki Kontrolü
         if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
             return message.reply('❌ **Hata:** Kayıt yapma yetkin yok kanka!');
         }
@@ -44,28 +42,42 @@ client.on('messageCreate', async (message) => {
 
         try {
             await hedefUye.setNickname(yeniTakmaAd);
-
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`rol_futbolcu_${hedefUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId(`rol_baskan_${hedefUye.id}`).setLabel('👑 Başkan').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`rol_td_${hedefUye.id}`).setLabel('📋 TD').setStyle(ButtonStyle.Danger)
             );
 
-            // Başarı Embed'i
             const embed = new EmbedBuilder()
                 .setTitle('📝 Kayıt Başarılı')
-                .setDescription(`👤 **Üye:** ${hedefUye}\n🏷️ **Takma Ad:** \`${yeniTakmaAd}\`\n\n👇 **Rol seçimi için butona tıkla:**`)
+                .setDescription(`👤 **Üye:** ${hedefUye}\n🏷️ **Takma Ad:** \`${yeniTakmaAd}\`\n\n👇 **Rol seçimi:**`)
                 .setColor(0x00FF00);
 
             await message.reply({ embeds: [embed], components: [row] });
-            
-            // Kayıt eden kişiyi hafızaya alıp sayıyı artırıyoruz
-            const kayitciId = message.author.id;
-            kayitSayilari[kayitciId] = (kayitSayilari[kayitciId] || 0) + 1;
-            
+            kayitSayilari[message.author.id] = (kayitSayilari[message.author.id] || 0) + 1;
         } catch (e) {
             message.reply('❌ Bot yetkilerini kontrol et kanka!');
         }
+    }
+
+    // --- .ara KOMUTU ---
+    if (message.content.startsWith('.ara')) {
+        const aranan = message.content.replace('.ara', '').trim();
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim veya bayrak gir kanka. Örn: `.ara pele` veya `.ara 🇧🇷`');
+
+        await message.guild.members.fetch(); // Tüm üyeleri çek
+        const sonuclar = message.guild.members.cache.filter(m => 
+            (m.nickname && m.nickname.includes(aranan)) || m.user.username.includes(aranan)
+        );
+
+        if (sonuclar.size === 0) return message.reply('🔍 Aradığın kriterde kimseyi bulamadım kanka.');
+
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 10).join('\n');
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
+            .setDescription(liste || 'Bulunamadı.')
+            .setColor(0xF1C40F);
+        message.reply({ embeds: [embed] });
     }
 });
 
@@ -73,16 +85,13 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
     const [_, rolKey, userId] = interaction.customId.split('_');
     const member = await interaction.guild.members.fetch(userId);
-    
     await member.roles.add(ROL_MAP[rolKey]);
     
-    // Kayıt sayısını burada gösteriyoruz
-    const kayitci = interaction.user.id;
-    const toplamKayit = kayitSayilari[kayitci] || 0;
-
+    const toplamKayit = kayitSayilari[interaction.user.id] || 0;
     interaction.reply({ 
-        content: `✅ **${member.displayName}** kullanıcısına rol verildi!\n🏅 **Kayıt Eden:** ${interaction.user.tag}\n📈 **Toplam Kayıt Sayın:** \`${toplamKayit}\`` 
+        content: `✅ **${member.displayName}** kullanıcısına rol verildi!\n📈 **Toplam Kayıt Sayın:** \`${toplamKayit}\`` 
     });
 });
 
 client.login(process.env.TOKEN);
+;
