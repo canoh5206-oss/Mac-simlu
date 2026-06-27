@@ -1,4 +1,4 @@
-    const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -8,7 +8,7 @@ const client = new Client({
 });
 
 // Sabit IDs
-const OWNER_ROL_ID = '1513269024866304091'; // @everyone atabilen tek rol
+const OWNER_ROL_ID = '1513269024866304091'; // @everyone atabilen TEK rol (Owner)
 const SOHBET_KANAL_ID = '1513271753491616064'; // Küfür edilince bildirim giden kanal
 
 // Engellenen kelimelerin tam listesi
@@ -19,7 +19,7 @@ const KUFUR_LISTESI = [
 ];
 
 client.once('ready', () => {
-    console.log(`🛡️ Gelişmiş Koruma Sistemi Aktif: ${client.user.tag}`);
+    console.log(`🛡️ Güncellenmiş Etiket ve Küfür Koruması Aktif: ${client.user.tag}`);
 });
 
 // Çökme Önleyici
@@ -37,9 +37,11 @@ client.on('messageCreate', async (message) => {
         // 1. EVERYONE / HERE ETİKET KORUMASI
         // ==========================================
         if (message.content.includes('@everyone') || message.content.includes('@here')) {
+            // Sadece OWNER rolü olanlar atabilir, diğer herkes cezalandırılır
             const ownerMi = message.member.roles.cache.has(OWNER_ROL_ID);
             
             if (!ownerMi) {
+                // Mesajı anında sil
                 await message.delete().catch(() => {});
 
                 // 5 Dakika Mute (Timeout)
@@ -101,3 +103,4 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
