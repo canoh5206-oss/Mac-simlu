@@ -9,8 +9,9 @@ const client = new Client({
     ]
 });
 
-const SUNUCU_ID = '1511859511634301059'; // Eklenen Sunucu ID
+const SUNUCU_ID = '1511859511634301059'; 
 const YETKILI_ROL_ID = '1512316879551860796';
+
 const ROL_MAP = {
     'futbolcu': '1512130383070892094',
     'baskan': '1512323399467139213',
@@ -20,13 +21,13 @@ const ROL_MAP = {
 let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Akıllı Fransa ve Emoji Destekli Arama Aktif: ${client.user.tag}`);
+    console.log(`✅ Orijinal Kayıt ve Arama Sistemi Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // --- !k KOMUTU (Hiç Dokunulmadı) ---
+    // --- !k KOMUTU ---
     if (message.content.startsWith('!k')) {
         if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
             return message.reply('❌ **Hata:** Kayıt yapma yetkin yok kanka!');
@@ -61,12 +62,11 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // --- .ara KOMUTU (Embedsiz, Mavi Etiketli ve Otomatik Düzeltmeli İstediğin Sürüm) ---
+    // --- .ara KOMUTU (EMBEDSIZ) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
 
-        // Sabitlenen sunucudan verileri güvenle çekip otomatik eşitliyoruz kanka
         const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
         try {
             await guild.members.fetch(); 
@@ -91,11 +91,8 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // Kanka tam istediğin gibi: Embed kutusu tamamen kaldırıldı, düz yazı yapıldı!
-        // Satır başında takma adı basıyor, yanında jilet gibi bozulmayan Mavi Etiket `<@ID>` çıkıyor.
         const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
         
-        // allowedMentions sayesinde kimseye bildirim (ping) gitmez ama etiketler mobilde de %100 mavi kalır
         return message.reply({
             content: `🔍 **Arama Sonuçları: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
             allowedMentions: { users: [] }
@@ -103,18 +100,18 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- INTERACTION İŞLEYİCİ (Hiç Dokunulmadı) ---
+// --- INTERACTION İŞLEYİCİ (Kayıt Butonları) ---
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
     
-    const [prefix, rolKey, userId] = interaction.customId.split('_');
+    const [prefix, secenek, userId] = interaction.customId.split('_');
     if (prefix !== 'rol') return;
 
     try {
         const member = await interaction.guild.members.fetch(userId);
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı!', ephemeral: true });
 
-        await member.roles.add(ROL_MAP[rolKey]);
+        await member.roles.add(ROL_MAP[secenek]);
         const toplamKayit = kayitSayilari[interaction.user.id] || 0;
         
         return interaction.reply({ 
@@ -126,6 +123,5 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-
-});
+            
 
