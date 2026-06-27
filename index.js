@@ -8,9 +8,9 @@ const client = new Client({
 });
 
 // Sabit IDs
-const OWNER_ROL_ID = '1513269024866304091'; // Etiket atabilen 1. Rol (Owner)
-const MUAF_ROL_ID = '1513269573451911259';  // Etiket atabilen 2. Rol (Yeni eklenen kişi/rol)
-const SOHBET_KANAL_ID = '1513271753491616064'; // Küfür edilince bildirim giden kanal
+const OWNER_ROL_ID = '1513269024866304091'; // Muaf 1. Rol (Owner)
+const MUAF_ROL_ID = '1513269573451911259';  // Muaf 2. Rol
+const SOHBET_KANAL_ID = '1513271753491616064'; // Küfür bildirim kanalı
 
 // Engellenen kelimelerin tam listesi
 const KUFUR_LISTESI = [
@@ -20,7 +20,7 @@ const KUFUR_LISTESI = [
 ];
 
 client.once('ready', () => {
-    console.log(`🛡️ Full Koruma Sistemi (Çift Rol İzinli) Aktif: ${client.user.tag}`);
+    console.log(`🛡️ Sistem Aktif ve Korumalar Hazır kanka: ${client.user.tag}`);
 });
 
 // Çökme Önleyici
@@ -33,21 +33,20 @@ client.on('messageCreate', async (message) => {
 
         // Türkçe karakter uyumluluğu için küçük harfe çevirme
         const mesajIcerikKucuk = message.content.toLowerCase().toLocaleLowerCase('tr-TR');
+        
+        // Yetki Kontrolü (Owner veya Muaf Rol sahipleri sistemlerden etkilenmez)
+        const yetkiliMi = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID);
 
-        // ==========================================
-        // 1. EVERYONE / HERE / HERW ETİKET KORUMASI
-        // ==========================================
-        if (message.content.includes('@everyone') || message.content.includes('@here') || mesajIcerikKucuk.includes('@herw')) {
-            // İzin verilen iki rolden birine sahip mi kontrol et
-            const yetkiliMi = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID);
-            
-            if (!yetkiliMi) {
-                // Mesajı anında sil
+        if (!yetkiliMi) {
+            // ==========================================
+            // 1. EVERYONE / HERE / HERW KORUMASI (MUTE VAR)
+            // ==========================================
+            if (message.content.includes('@everyone') || message.content.includes('@here') || mesajIcerikKucuk.includes('@herw')) {
                 await message.delete().catch(() => {});
 
                 // 5 Dakika Mute (Timeout)
                 const besDakika = 5 * 60 * 1000;
-                await message.member.timeout(besDakika, 'Yetkisiz etiket/duyuru kullanımı.').catch(() => {});
+                await message.member.timeout(besDakika, 'Yetkisiz duyuru/etiket kullanımı.').catch(() => {});
 
                 // Kullanıcıya DM Uyarı
                 await message.author.send({
@@ -56,46 +55,49 @@ client.on('messageCreate', async (message) => {
 
                 return;
             }
-        }
 
-        // ==========================================
-        // 2. DISCORD LINK ENGELLEYİCİ (Sadece Silme)
-        // ==========================================
-        if (mesajIcerikKucuk.includes('discord.gg/') || mesajIcerikKucuk.includes('discord.com/invite/')) {
-            const muafMi = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
-            if (!muafMi) {
+            // ==========================================
+            // 2. NORMAL ROL ETİKET KORUMASI (SADECE SİLME - MUTE YOK)
+            // ==========================================
+            if (message.mentions.roles.size > 0) {
                 await message.delete().catch(() => {});
                 return;
             }
-        }
 
-        // ==========================================
-        // 3. KÜFÜR ENGELLEYİCİ (Silme + Mute + Kanal Mesajı)
-        // ==========================================
-        const ownerVeyaAdmin = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
-        
-        if (!ownerVeyaAdmin) {
-            const kufurVarMi = KUFUR_LISTESI.some(kufur => {
-                const regex = new RegExp(`\\b${kufur}\\b`, 'i');
-                return regex.test(mesajIcerikKucuk);
-            });
-
-            if (kufurVarMi) {
-                // 1. Mesajı sil
+            // ==========================================
+            // 3. DISCORD LINK ENGELLEYİCİ (SADECE SİLME - MUTE YOK)
+            // ==========================================
+            if (mesajIcerikKucuk.includes('discord.gg/') || mesajIcerikKucuk.includes('discord.com/invite/')) {
                 await message.delete().catch(() => {});
-
-                // 2. 5 Dakika Mute at (Timeout)
-                const besDakika = 5 * 60 * 1000;
-                await message.member.timeout(besDakika, 'Sohbette küfür/argo kullanımı.').catch(() => {});
-
-                // 3. Belirttiğin Sohbet Kanalına bildirim gönder
-                const sohbetKanali = client.channels.cache.get(SOHBET_KANAL_ID) || await client.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
-                if (sohbetKanali) {
-                    await sohbetKanali.send({
-                        content: `⚠️ <@${message.author.id}> küfür ettiği için **5 dakika** süreyle susturuldu (mute atıldı).`
-                    }).catch(() => {});
-                }
                 return;
+            }
+
+            // ==========================================
+            // 4. KÜFÜR ENGELLEYİCİ (MUTE VE KANAL MESAJI VAR)
+            // ==========================================
+            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                const kufurVarMi = KUFUR_LISTESI.some(kufur => {
+                    const regex = new RegExp(`\\b${kufur}\\b`, 'i');
+                    return regex.test(mesajIcerikKucuk);
+                });
+
+                if (kufurVarMi) {
+                    // Mesajı sil
+                    await message.delete().catch(() => {});
+
+                    // 5 Dakika Mute at (Timeout)
+                    const besDakika = 5 * 60 * 1000;
+                    await message.member.timeout(besDakika, 'Sohbette küfür/argo kullanımı.').catch(() => {});
+
+                    // Sohbet Kanalına bildirim gönder
+                    const sohbetKanali = client.channels.cache.get(SOHBET_KANAL_ID) || await client.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
+                    if (sohbetKanali) {
+                        await sohbetKanali.send({
+                            content: `⚠️ <@${message.author.id}> küfür ettiği için **5 dakika** süreyle susturuldu (mute atıldı).`
+                        }).catch(() => {});
+                    }
+                    return;
+                }
             }
         }
 
@@ -105,4 +107,5 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
+                        
                 
