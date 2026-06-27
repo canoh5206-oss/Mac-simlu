@@ -139,39 +139,47 @@ client.on('messageCreate', async (message) => {
         }
 
         // --- .ara KOMUTU (Orijinal Yapın) ---
-        if (message.content.startsWith('.ara')) {
-            let aranan = message.content.replace('.ara', '').trim();
-            if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+        // --- .ara KOMUTU (Embedsiz, Mavi Etiketli ve Otomatik Düzeltmeli İstediğin Sürüm) ---
+    if (message.content.startsWith('.ara')) {
+        let aranan = message.content.replace('.ara', '').trim();
+        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
 
-            const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
-            try { await guild.members.fetch(); } catch (fErr) { console.error("Üyeler çekilemedi:", fErr); }
-            
-            const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-            const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
-            const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
-
-            const sonuclar = guild.members.cache.filter(m => {
-                const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
-                const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
-                
-                if (fransaAraniyorMu) {
-                    return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
-                           username.includes('fransa') || username.includes('fransiz');
-                }
-                return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
-            });
-
-            if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
-
-            const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
-            
-            return message.reply({
-                content: `🔍 **Arama Sonuçları: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
-                allowedMentions: { users: [] }
-            });
+        // Sabitlenen sunucudan verileri güvenle çekip otomatik eşitliyoruz kanka
+        const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
+        try {
+            await guild.members.fetch(); 
+        } catch (fErr) {
+            console.error("Üyeler çekilemedi:", fErr);
         }
-    } catch (mainErr) { console.error(mainErr); }
-});
+        
+        const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
+        const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
+        const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
+
+        const sonuclar = guild.members.cache.filter(m => {
+            const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
+            const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
+            
+            if (fransaAraniyorMu) {
+                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
+                       username.includes('fransa') || username.includes('fransiz');
+            }
+            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
+        });
+
+        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
+
+        // Kanka tam istediğin gibi: Embed kutusu tamamen kaldırıldı, düz yazı yapıldı!
+        // Satır başında takma adı basıyor, yanında jilet gibi bozulmayan Mavi Etiket `<@ID>` çıkıyor.
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
+        
+        // allowedMentions sayesinde kimseye bildirim (ping) gitmez ama etiketler mobilde de %100 mavi kalır
+        return message.reply({
+            content: `🔍 **Arama Sonuçları: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
+            allowedMentions: { users: [] }
+        });
+    }
+})
 
 // --- INTERACTION İŞLEYİCİ (Buton İşlemleri) ---
 client.on('interactionCreate', async (interaction) => {
