@@ -1,7 +1,4 @@
-    
-    
-
-const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+    const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -10,15 +7,19 @@ const client = new Client({
     ]
 });
 
-// Sabit Rol IDs
+// Sabit IDs
 const OWNER_ROL_ID = '1513269024866304091'; // @everyone atabilen tek rol
-const FUTBOLCU_ROL_ID = '1512130383070892094'; // @everyone atamayan, ceza alacak rol
+const SOHBET_KANAL_ID = '1513271753491616064'; // Küfür edilince bildirim giden kanal
 
-// Basit Küfür Listesi (İstediğin kelimeleri buraya ekleyebilirsin kanka)
-const KUFUR_LISTESI = ['amk', 'aq', 'orospu', 'piç', 'sik', 'göt', 'yarrak'];
+// Engellenen kelimelerin tam listesi
+const KUFUR_LISTESI = [
+    'amk', 'aq', 'orospu', 'piç', 'sik', 'göt', 'yarrak',
+    'prono', 'prona', 'prana', '31', '67', 'anani', 
+    'oe', 'œ', 'oropusu', 'orobusu', 'oropusu çocugu'
+];
 
 client.once('ready', () => {
-    console.log(`🛡️ Sunucu Koruma Sistemi Aktif: ${client.user.tag}`);
+    console.log(`🛡️ Gelişmiş Koruma Sistemi Aktif: ${client.user.tag}`);
 });
 
 // Çökme Önleyici
@@ -29,29 +30,28 @@ client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot || !message.guild) return;
 
-        const mesajIcerikKucuk = message.content.toLowerCase();
+        // Türkçe karakter uyumluluğu için küçük harfe çevirme
+        const mesajIcerikKucuk = message.content.toLowerCase().toLocaleLowerCase('tr-TR');
 
         // ==========================================
         // 1. EVERYONE / HERE ETİKET KORUMASI
         // ==========================================
         if (message.content.includes('@everyone') || message.content.includes('@here')) {
-            // Eğer mesajı atan kişi OWNER rolüne sahip DEĞİLSE veya FUTBOLCU rolüne sahipse
             const ownerMi = message.member.roles.cache.has(OWNER_ROL_ID);
             
             if (!ownerMi) {
-                // Mesajı anında sil
                 await message.delete().catch(() => {});
 
-                // 5 Dakika Mute at (Timeout)
+                // 5 Dakika Mute (Timeout)
                 const besDakika = 5 * 60 * 1000;
                 await message.member.timeout(besDakika, 'Yetkisiz everyone/here etiketi kullanımı.').catch(() => {});
 
-                // Kullanıcıya DM'den kaliteli uyarı gönder
+                // Kullanıcıya DM Uyarı
                 await message.author.send({
-                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ **SUNUCU CEZA UYARISI** ⚠️\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${message.author.id}>,\n\nSunucumuzda yetkiniz olmadığı halde \`@everyone\` veya \`@here\` etiketini kullanmaya çalıştığınız tespit edilmiştir.\n\n⏳ **Uygulanan Ceza:** \`5 Dakika Susturma (Mute)\`\n\n👉 *Lütfen sunucu kurallarına riayet ediniz, aksi takdirde cezanız katlanacaktır.*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-                }).catch(() => console.log('Kullanıcının DM kutusu kapalı, uyarı gitmedi.'));
+                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ **SUNUCU CEZA UYARISI** ⚠️\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${message.author.id}>,\n\nSunucumuzda yetkiniz olmadığı halde \`@everyone\` veya \`@here\` etiketini kullanmaya çalıştığınız tespit edilmiştir.\n\n⏳ **Uygulanan Ceza:** \`5 Dakika Susturma (Mute)\`\n\n👉 *Lütfen sunucu kurallarına riayet ediniz.*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+                }).catch(() => {});
 
-                return; // Diğer korumalara bakmaya gerek yok, adam uçtu zaten
+                return;
             }
         }
 
@@ -59,7 +59,6 @@ client.on('messageCreate', async (message) => {
         // 2. DISCORD LINK ENGELLEYİCİ (Sadece Silme)
         // ==========================================
         if (mesajIcerikKucuk.includes('discord.gg/') || mesajIcerikKucuk.includes('discord.com/invite/')) {
-            // Owner veya Yönetici değilse linkleri siler
             if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
                 await message.delete().catch(() => {});
                 return;
@@ -67,17 +66,31 @@ client.on('messageCreate', async (message) => {
         }
 
         // ==========================================
-        // 3. KÜFÜR ENGELLEYİCİ (Sadece Silme)
+        // 3. KÜFÜR ENGELLEYİCİ (Silme + Mute + Kanal Mesajı)
         // ==========================================
-        const kufurVarMi = KUFUR_LISTESI.some(kufur => {
-            // Kelime bazlı kontrol (örn: "aq" kelimesini yakalar ama "akvaryum"u silmez kanka)
-            const regex = new RegExp(`\\b${kufur}\\b`, 'i');
-            return regex.test(mesajIcerikKucuk);
-        });
+        const ownerVeyaAdmin = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        
+        if (!ownerVeyaAdmin) {
+            const kufurVarMi = KUFUR_LISTESI.some(kufur => {
+                const regex = new RegExp(`\\b${kufur}\\b`, 'i');
+                return regex.test(mesajIcerikKucuk);
+            });
 
-        if (kufurVarMi) {
-            if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            if (kufurVarMi) {
+                // 1. Mesajı sil
                 await message.delete().catch(() => {});
+
+                // 2. 5 Dakika Mute at (Timeout)
+                const besDakika = 5 * 60 * 1000;
+                await message.member.timeout(besDakika, 'Sohbette küfür/argo kullanımı.').catch(() => {});
+
+                // 3. Belirttiğin Sohbet Kanalına bildirim gönder
+                const sohbetKanali = client.channels.cache.get(SOHBET_KANAL_ID) || await client.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
+                if (sohbetKanali) {
+                    await sohbetKanali.send({
+                        content: `⚠️ <@${message.author.id}> küfür ettiği için **5 dakika** süreyle susturuldu (mute atıldı).`
+                    }).catch(() => {});
+                }
                 return;
             }
         }
