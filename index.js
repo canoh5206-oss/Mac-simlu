@@ -1,5 +1,5 @@
 const { 
-    Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
+    Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField 
 } = require('discord.js');
 
 const client = new Client({
@@ -10,8 +10,13 @@ const client = new Client({
 });
 
 const SUNUCU_ID = '1511859511634301059'; 
-const YETKILI_ROL_ID = '1512316879551860796';
+const YETKILI_ROL_ID = '1512316879551860796'; // !k komutu yetkilisi
 const BILGI_KANAL_ID = '1515123600502427739'; 
+
+// Özel Yetki Rolleri
+const TD_ROL_ID = '1513270136176381953'; // .dm yetkilisi
+const BASKAN_ROL_ID = '1512323399467139213'; // .dm yetkilisi
+const OWNER_ROL_ID = '1513269024866304091'; // .dmlerkapat ve .dmlerac yetkilisi
 
 const ROL_MAP = {
     'futbolcu': '1512130383070892094',
@@ -20,18 +25,36 @@ const ROL_MAP = {
 };
 
 let kayitSayilari = {};
+let dmTeklifleriAcik = true; // DM durumunu hafızada tutan değişken
 
 client.once('ready', () => {
-    console.log(`✅ Sistem Aktif, Hatalar Giderildi: ${client.user.tag}`);
+    console.log(`✅ Kaliteli Transfer, Rol Sınırlandırması ve DM Aç/Kapat Sistemi Aktif: ${client.user.tag}`);
 });
 
-// Çökme Önleyiciler (Kırmızı hata verip botun kapanmasını engeller kanka)
+// Çökme Önleyiciler
 process.on('unhandledRejection', (reason, p) => { console.error(reason); });
 process.on('uncaughtException', (err, origin) => { console.error(err); });
 
 client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot) return;
+
+        // --- 🔒 OWNER DM KONTROL KOMUTLARI ---
+        if (message.content === '.dmlerkapat') {
+            if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return message.reply('❌ **Hata:** Bu komutu sadece Kurucu / Owner kullanabilir kanka!');
+            }
+            dmTeklifleriAcik = false;
+            return message.reply('🔒 **Sistem Kilitlendi:** DM transfer teklifi gönderimleri geçici olarak durduruldu!');
+        }
+
+        if (message.content === '.dmlerac') {
+            if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return message.reply('❌ **Hata:** Bu komutu sadece Kurucu / Owner kullanabilir kanka!');
+            }
+            dmTeklifleriAcik = true;
+            return message.reply('🔓 **Sistem Aktif:** DM transfer teklifi gönderimleri tekrar açıldı kanka!');
+        }
 
         // --- !k KOMUTU (Orijinal Yapın) ---
         if (message.content.startsWith('!k')) {
@@ -68,43 +91,49 @@ client.on('messageCreate', async (message) => {
             }
         }
 
-        // --- .dm TRANSFER TEKLİF KOMUTU ---
+        // --- .dm TRANSFER TEKLİF KOMUTU (Sadece Başkan ve TD) ---
         if (message.content.startsWith('.dm')) {
-            if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
-                return message.reply('❌ **Hata:** Bu komutu kullanmaya yetkin yok kanka!');
+            // Sadece Teknik Direktör veya Başkan rolü olanlar atabilir kanka
+            const yetkiliMi = message.member.roles.cache.has(TD_ROL_ID) || message.member.roles.cache.has(BASKAN_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
+            if (!yetkiliMi) {
+                return message.reply('❌ **Hata:** Bu komutu sadece **Teknik Direktör** veya **Başkan** rolüne sahip kişiler kullanabilir kanka!');
+            }
+
+            // Owner kapatmış mı kontrolü
+            if (!dmTeklifleriAcik) {
+                return message.reply('❌ **Hata:** DM transfer teklifleri şu anda Kurucu / Owner tarafından kapatılmış durumda!');
             }
 
             const hedefUye = message.mentions.members.first();
             if (!hedefUye) return message.reply('❌ **Hata:** Teklif gönderilecek oyuncuyu etiketle kanka! Örn: `.dm @Oyuncu Real Madrid...`');
 
-            // Hata çıkaran metin ayıklama kısmını tamamen güvenli hale getirdik kanka
             const komutParcalari = message.content.split(' ');
-            komutParcalari.shift(); // .dm kısmını siler
-            komutParcalari.shift(); // @Etiket kısmını siler
+            komutParcalari.shift(); 
+            komutParcalari.shift(); 
             const teklifIcerik = komutParcalari.join(' ').trim();
 
             if (!teklifIcerik) return message.reply('❌ **Hata:** Teklif detaylarını yazmadın kanka!');
 
             try {
                 const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`teklif_evet_${hedefUye.id}`).setLabel('✅ Evet (Kabul Et)').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`teklif_hayir_${hedefUye.id}`).setLabel('❌ Hayır (Reddet)').setStyle(ButtonStyle.Danger)
+                    new ButtonBuilder().setCustomId(`teklif_evet_${hedefUye.id}`).setLabel('🤝 Kabul Et').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId(`teklif_hayir_${hedefUye.id}`).setLabel('❌ Reddet').setStyle(ButtonStyle.Danger)
                 );
 
                 await hedefUye.send({
-                    content: `🚨 **YENİ TRANSFER TEKLİFİ GELDİ KANKA!**\n\n📋 **Teklif Detayları:**\n${teklifIcerik}\n\n👇 **Teklifi kabul ediyor musun?**`,
+                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚨 **YENİ RESMİ TRANSFER TEKLİFİ** 🚨\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${hedefUye.id}>, **kulübümüze sizin için resmi bir transfer teklifi ulaşmıştır.**\n\n📋 **Teklif Detayları ve Şartlar:**\n\`\`\`📌 ${teklifIcerik}\`\`\`\n\n👇 **Kararınızı aşağıdaki butonları kullanarak bildirebilirsiniz:**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
                     components: [row]
                 });
 
                 const bilgiKanali = client.channels.cache.get(BILGI_KANAL_ID) || await client.channels.fetch(BILGI_KANAL_ID).catch(() => null);
                 if (bilgiKanali) {
                     await bilgiKanali.send({ 
-                        content: `📩 **Teklif gönderdi**\n👤 **Oyuncu:** <@${hedefUye.id}>\n📝 **Detaylar:** ${teklifIcerik}`,
+                        content: `📊 **TRANSFER GÜNDEMİ** 🔔\n──────────────────────────────\n📩 **Teklif gönderdi**\n👤 **Muhatap Oyuncu:** <@${hedefUye.id}>\n📝 **Anlaşma Şartları:** \`${teklifIcerik}\`\n──────────────────────────────`,
                         allowedMentions: { users: [] }
                     }).catch(() => {});
                 }
 
-                return message.reply(`✅ **Başarılı:** Teklif ${hedefUye.displayName} kullanıcısının DM kutusuna gönderildi ve loglandı!`);
+                return message.reply(`✅ **Başarılı:** Teklif en kaliteli haliyle ${hedefUye.displayName} kullanıcısının DM kutusuna iletildi!`);
             } catch (error) {
                 return message.reply('❌ **Hata:** Oyuncunun DM kutusu kapalı olduğu için teklif iletilemedi kanka!');
             }
@@ -153,15 +182,15 @@ client.on('interactionCreate', async (interaction) => {
         const [prefix, secenek, userId] = interaction.customId.split('_');
         const bilgiKanali = client.channels.cache.get(BILGI_KANAL_ID) || await client.channels.fetch(BILGI_KANAL_ID).catch(() => null);
 
-        // Hata fırlatan DM Buton alanını tamamen güvenli ve stabil hale getirdik kanka
+        // DM Buton Yanıtları
         if (prefix === 'teklif') {
-            await interaction.deferUpdate().catch(() => {}); // Kırmızı hatayı önleyen kritik satır
+            await interaction.deferUpdate().catch(() => {}); 
             await interaction.editReply({ components: [] }).catch(() => {});
 
             if (secenek === 'evet') {
                 if (bilgiKanali) {
                     await bilgiKanali.send({ 
-                        content: `🤝 **Teklif kabul etti**\n👤 **Oyuncu:** <@${userId}> gelen transfer teklifini kabul etti!`,
+                        content: `📊 **TRANSFER GÜNDEMİ** 🔔\n──────────────────────────────\n🤝 **Teklif kabul etti**\n👤 **Oyuncu:** <@${userId}> kendisine gelen resmi teklifi **kabul etti**! Yeni kariyerinde başarılar. 🚀\n──────────────────────────────`,
                         allowedMentions: { users: [] }
                     }).catch(() => {});
                 }
@@ -171,7 +200,7 @@ client.on('interactionCreate', async (interaction) => {
             if (secenek === 'hayir') {
                 if (bilgiKanali) {
                     await bilgiKanali.send({ 
-                        content: `❌ **Teklifi reddetti**\n👤 **Oyuncu:** <@${userId}> gelen transfer teklifini reddetti!`,
+                        content: `📊 **TRANSFER GÜNDEMİ** 🔔\n──────────────────────────────\n❌ **Teklifi reddetti**\n👤 **Oyuncu:** <@${userId}> kendisine gelen resmi teklifi **reddetti** ve kulübünde kalmaya karar verdi! ⚔️\n──────────────────────────────`,
                         allowedMentions: { users: [] }
                     }).catch(() => {});
                 }
@@ -179,7 +208,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // Orijinal Kayıt Rol Butonları Yapın (Hiç Dokunulmadı)
+        // Orijinal Kayıt Rol Butonları Yapın
         if (prefix !== 'rol') return;
 
         const member = await interaction.guild.members.fetch(userId);
@@ -195,4 +224,5 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+                                     
         
