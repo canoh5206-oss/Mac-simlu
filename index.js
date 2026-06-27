@@ -9,7 +9,10 @@ const client = new Client({
     ]
 });
 
+const SUNUCU_ID = '1511859511634301059'; 
 const YETKILI_ROL_ID = '1512316879551860796';
+const BILGI_KANAL_ID = '1515123600502427739'; // Tekliflerin durumunun atılacağı kanal
+
 const ROL_MAP = {
     'futbolcu': '1512130383070892094',
     'baskan': '1512323399467139213',
@@ -19,13 +22,13 @@ const ROL_MAP = {
 let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Akıllı Fransa ve Emoji Destekli Arama Aktif: ${client.user.tag}`);
+    console.log(`✅ Akıllı Fransa, Emoji Destekli Arama ve Transfer DM Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // --- !k KOMUTU ---
+    // --- !k KOMUTU (Orijinal Yapın) ---
     if (message.content.startsWith('!k')) {
         if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
             return message.reply('❌ **Hata:** Kayıt yapma yetkin yok kanka!');
@@ -60,63 +63,14 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // --- .ara KOMUTU ---
-    if (message.content.startsWith('.ara')) {
-        let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+    // --- .dm TRANSFER TEKLİF KOMUTU ---
+    if (message.content.startsWith('.dm')) {
+        if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
+            return message.reply('❌ **Hata:** Bu komutu kullanmaya yetkin yok kanka!');
+        }
 
-        await message.guild.members.fetch(); 
-        
-        const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-        const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
-        const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
-
-        const sonuclar = message.guild.members.cache.filter(m => {
-            const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
-            const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
-            
-            if (fransaAraniyorMu) {
-                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
-                       username.includes('fransa') || username.includes('fransiz');
-            }
-            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
-        });
-
-        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
-
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
-        
-        const embed = new EmbedBuilder()
-            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
-            .setDescription(liste)
-            .setColor(0xF1C40F)
-            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
-
-        message.reply({ embeds: [embed] });
-    }
-});
-
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-    
-    const [prefix, rolKey, userId] = interaction.customId.split('_');
-    if (prefix !== 'rol') return;
-
-    try {
-        const member = await interaction.guild.members.fetch(userId);
-        if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı!', ephemeral: true });
-
-        await member.roles.add(ROL_MAP[rolKey]);
-        const toplamKayit = kayitSayilari[interaction.user.id] || 0;
-        
-        return interaction.reply({ 
-            content: `✅ **${member.displayName}** kullanıcısına rol verildi!\n📈 **Toplam Kayıt Sayın:** \`${toplamKayit}\`` 
-        });
-    } catch (e) {
-        return interaction.reply({ content: '❌ Rol verilirken bir hata oluştu!', ephemeral: true });
-    }
-});
-
-client.login(process.env.TOKEN);
+        const hedefUye = message.mentions.members.first();
+        if (!hedefUye) return message.reply('❌ **Hata:** Teklif gönderilecek
+;
 
 
