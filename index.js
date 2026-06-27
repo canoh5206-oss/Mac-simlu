@@ -2,7 +2,6 @@ const {
     Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
 } = require('discord.js');
 
-// Kanka botun çökmesini engelleyen en güvenli intent ayarları burası
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
@@ -23,7 +22,7 @@ client.once('ready', () => {
     console.log(`✅ Bot tıkır tıkır çalışıyor: ${client.user.tag}`);
 });
 
-// Altyapı Çökme Önleyicileri (Konsola hata basar ama botu asla kapatmaz)
+// Hata Önleyiciler (Konsola yazar ama botu asla kapatmaz)
 process.on('unhandledRejection', (reason, p) => {
     console.error(' [HATA] Yakalanmayan Reddedilme:', reason);
 });
@@ -35,7 +34,6 @@ client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot || !message.guild) return;
 
-        // Yetkili veya Yönetici Kontrolü
         const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         // --- 🎫 TICKET KURULUM KOMUTU ---
@@ -46,7 +44,6 @@ client.on('messageCreate', async (message) => {
             return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
         }
 
-        // Yetkili değilse diğer komutları çalıştırma
         if (!isYetkili) return;
 
         // --- !k KOMUTU ---
@@ -80,14 +77,13 @@ client.on('messageCreate', async (message) => {
             }
         }
 
-        // --- .ara KOMUTU (SNT / Bayrak / Oyuncu Adı Arayan, Embedsiz ve Mavi Etiketli Sürüm) ---
+        // --- .ara KOMUTU (Embedsiz, Mavi Etiketli, Kusursuz Sürüm) ---
         if (message.content.startsWith('.ara')) {
             let aranan = message.content.replace('.ara', '').trim();
             if (!aranan) return message.reply('❌ **Hata:** Bir arama kriteri gir kanka. Örn: `.ara SNT` veya `.ara 🇲🇫`');
 
             const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
             
-            // Hafızayı güvenli şekilde tazeliyoruz
             try {
                 await guild.members.fetch();
             } catch (fErr) {
@@ -104,17 +100,17 @@ client.on('messageCreate', async (message) => {
 
             if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-            // Tam istediğin format: Embed kutusu yok, düz yazı! Önce kendi takma adı, yanında mavi etiket!
+            // Düz yazı formatı: Takma Adı ve Yanında Bozulmayan Mavi Etiket!
             const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
             
             return message.reply({
                 content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **Toplam ${sonuclar.size} kişi bulundu.**`,
-                allowedMentions: { users: [] } // Mavi yapar ama kimseye bildirim (ping) atmaz
+                allowedMentions: { users: [] } // Mavi etiket yapar ama pinglemez kanka!
             });
         }
 
     } catch (err) {
-        console.error("Mesaj döngüsünde kritik hata:", err);
+        console.error("Kritik Döngü Hatası:", err);
     }
 });
 
@@ -170,10 +166,9 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
     } catch (intErr) {
-        console.error("Buton basılırken hata:", intErr);
+        console.error("Buton Hatası:", intErr);
     }
 });
 
 client.login(process.env.TOKEN);
-);
 
