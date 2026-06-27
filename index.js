@@ -1,4 +1,4 @@
-const { 
+Const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
 } = require('discord.js');
 
@@ -9,9 +9,7 @@ const client = new Client({
     ]
 });
 
-const SUNUCU_ID = '1511859511634301059'; 
 const YETKILI_ROL_ID = '1512316879551860796';
-
 const ROL_MAP = {
     'futbolcu': '1512130383070892094',
     'baskan': '1512323399467139213',
@@ -21,7 +19,7 @@ const ROL_MAP = {
 let kayitSayilari = {};
 
 client.once('ready', () => {
-    console.log(`✅ Orijinal Kayıt ve Arama Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Akıllı Fransa ve Emoji Destekli Arama Aktif: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -62,23 +60,18 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // --- .ara KOMUTU (EMBEDSIZ) ---
+    // --- .ara KOMUTU ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
         if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
 
-        const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
-        try {
-            await guild.members.fetch(); 
-        } catch (fErr) {
-            console.error("Üyeler çekilemedi:", fErr);
-        }
+        await message.guild.members.fetch(); 
         
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
         const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
         const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
-        const sonuclar = guild.members.cache.filter(m => {
+        const sonuclar = message.guild.members.cache.filter(m => {
             const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
@@ -91,27 +84,29 @@ client.on('messageCreate', async (message) => {
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - ${m.user.toString()}`).slice(0, 15).join('\n');
         
-        return message.reply({
-            content: `🔍 **Arama Sonuçları: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
-            allowedMentions: { users: [] }
-        });
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
+            .setDescription(liste)
+            .setColor(0xF1C40F)
+            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
+
+        message.reply({ embeds: [embed] });
     }
 });
 
-// --- INTERACTION İŞLEYİCİ (Kayıt Butonları) ---
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
     
-    const [prefix, secenek, userId] = interaction.customId.split('_');
+    const [prefix, rolKey, userId] = interaction.customId.split('_');
     if (prefix !== 'rol') return;
 
     try {
         const member = await interaction.guild.members.fetch(userId);
         if (!member) return interaction.reply({ content: '❌ Kullanıcı bulunamadı!', ephemeral: true });
 
-        await member.roles.add(ROL_MAP[secenek]);
+        await member.roles.add(ROL_MAP[rolKey]);
         const toplamKayit = kayitSayilari[interaction.user.id] || 0;
         
         return interaction.reply({ 
@@ -123,5 +118,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-            
 
