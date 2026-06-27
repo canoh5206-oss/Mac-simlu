@@ -8,7 +8,8 @@ const client = new Client({
 });
 
 // Sabit IDs
-const OWNER_ROL_ID = '1513269024866304091'; // @everyone ve @here atabilen TEK rol (Owner)
+const OWNER_ROL_ID = '1513269024866304091'; // Etiket atabilen 1. Rol (Owner)
+const MUAF_ROL_ID = '1513269573451911259';  // Etiket atabilen 2. Rol (Yeni eklenen kişi/rol)
 const SOHBET_KANAL_ID = '1513271753491616064'; // Küfür edilince bildirim giden kanal
 
 // Engellenen kelimelerin tam listesi
@@ -19,7 +20,7 @@ const KUFUR_LISTESI = [
 ];
 
 client.once('ready', () => {
-    console.log(`🛡️ Full Koruma Sistemi (Etiket + Küfür) Aktif: ${client.user.tag}`);
+    console.log(`🛡️ Full Koruma Sistemi (Çift Rol İzinli) Aktif: ${client.user.tag}`);
 });
 
 // Çökme Önleyici
@@ -37,10 +38,10 @@ client.on('messageCreate', async (message) => {
         // 1. EVERYONE / HERE / HERW ETİKET KORUMASI
         // ==========================================
         if (message.content.includes('@everyone') || message.content.includes('@here') || mesajIcerikKucuk.includes('@herw')) {
-            // Sadece OWNER rolü olanlar atabilir, diğer herkes cezalandırılır
-            const ownerMi = message.member.roles.cache.has(OWNER_ROL_ID);
+            // İzin verilen iki rolden birine sahip mi kontrol et
+            const yetkiliMi = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID);
             
-            if (!ownerMi) {
+            if (!yetkiliMi) {
                 // Mesajı anında sil
                 await message.delete().catch(() => {});
 
@@ -61,7 +62,8 @@ client.on('messageCreate', async (message) => {
         // 2. DISCORD LINK ENGELLEYİCİ (Sadece Silme)
         // ==========================================
         if (mesajIcerikKucuk.includes('discord.gg/') || mesajIcerikKucuk.includes('discord.com/invite/')) {
-            if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            const muafMi = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
+            if (!muafMi) {
                 await message.delete().catch(() => {});
                 return;
             }
@@ -70,7 +72,7 @@ client.on('messageCreate', async (message) => {
         // ==========================================
         // 3. KÜFÜR ENGELLEYİCİ (Silme + Mute + Kanal Mesajı)
         // ==========================================
-        const ownerVeyaAdmin = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const ownerVeyaAdmin = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
         
         if (!ownerVeyaAdmin) {
             const kufurVarMi = KUFUR_LISTESI.some(kufur => {
@@ -103,5 +105,4 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
-;
-
+                
