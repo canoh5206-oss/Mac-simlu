@@ -1,4 +1,4 @@
-       const { 
+const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField 
 } = require('discord.js');
 
@@ -29,7 +29,7 @@ let kayitSayilari = {};
 let dmTeklifleriAcik = true; // DM durumunu hafızada tutan değişken
 
 client.once('ready', () => {
-    console.log(`✅ Owner ID Korumalı Sistem Aktif: ${client.user.tag}`);
+    console.log(`✅ Sistem Aktif (Embedsiz Arama): ${client.user.tag}`);
 });
 
 // Çökme Önleyiciler (Botun kapanmasını engeller kanka)
@@ -103,8 +103,8 @@ client.on('messageCreate', async (message) => {
                 return message.reply('❌ **Hata:** DM transfer teklifleri şu anda Kurucu / Owner tarafından kapatılmış durumda!');
             }
 
-            const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ **Hata:** Teklif gönderilecek oyuncuyu etiketle kanka! Örn: `.dm @Oyuncu Real Madrid...`');
+            const hedonUye = message.mentions.members.first();
+            if (!hedonUye) return message.reply('❌ **Hata:** Teklif gönderilecek oyuncuyu etiketle kanka! Örn: `.dm @Oyuncu Real Madrid...`');
 
             const komutParcalari = message.content.split(' ');
             komutParcalari.shift(); 
@@ -115,71 +115,64 @@ client.on('messageCreate', async (message) => {
 
             try {
                 const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`teklif_evet_${hedefUye.id}`).setLabel('🤝 Kabul Et').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`teklif_hayir_${hedefUye.id}`).setLabel('❌ Reddet').setStyle(ButtonStyle.Danger)
+                    new ButtonBuilder().setCustomId(`teklif_evet_${hedonUye.id}`).setLabel('🤝 Kabul Et').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId(`teklif_hayir_${hedonUye.id}`).setLabel('❌ Reddet').setStyle(ButtonStyle.Danger)
                 );
 
-                await hedefUye.send({
-                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚨 **YENİ RESMİ TRANSFER TEKLİFİ** 🚨\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${hedefUye.id}>, **kulübümüze sizin için resmi bir transfer teklifi ulaşmıştır.**\n\n📋 **Teklif Detayları ve Şartlar:**\n\`\`\`📌 ${teklifIcerik}\`\`\`\n\n👇 **Kararınızı aşağıdaki butonları kullanarak bildirebilirsiniz:**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                await hedonUye.send({
+                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚨 **YENİ RESMİ TRANSFER TEKLİFİ** 🚨\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${hedonUye.id}>, **kulübümüze sizin için resmi bir transfer teklifi ulaşmıştır.**\n\n📋 **Teklif Detayları ve Şartlar:**\n\`\`\`📌 ${teklifIcerik}\`\`\`\n\n👇 **Kararınızı aşağıdaki butonları kullanarak bildirebilirsiniz:**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
                     components: [row]
                 });
 
                 const bilgiKanali = client.channels.cache.get(BILGI_KANAL_ID) || await client.channels.fetch(BILGI_KANAL_ID).catch(() => null);
                 if (bilgiKanali) {
                     await bilgiKanali.send({ 
-                        content: `📊 **TRANSFER GÜNDEMİ** 🔔\n──────────────────────────────\n📩 **Teklif gönderdi**\n👤 **Muhatap Oyuncu:** <@${hedefUye.id}>\n📝 **Anlaşma Şartları:** \`${teklifIcerik}\`\n──────────────────────────────`,
+                        content: `📊 **TRANSFER GÜNDEMİ** 🔔\n──────────────────────────────\n📩 **Teklif gönderdi**\n👤 **Muhatap Oyuncu:** <@${hedonUye.id}>\n📝 **Anlaşma Şartları:** \`${teklifIcerik}\`\n──────────────────────────────`,
                         allowedMentions: { users: [] }
                     }).catch(() => {});
                 }
 
-                return message.reply(`✅ **Başarılı:** Teklif en kaliteli haliyle ${hedefUye.displayName} kullanıcısının DM kutusuna iletildi!`);
+                return message.reply(`✅ **Başarılı:** Teklif en kaliteli haliyle ${hedonUye.displayName} kullanıcısının DM kutusuna iletildi!`);
             } catch (error) {
                 return message.reply('❌ **Hata:** Oyuncunun DM kutusu kapalı olduğu için teklif iletilemedi kanka!');
             }
         }
 
-        // --- .ara KOMUTU (Orijinal Yapın) ---
-        // --- .ara KOMUTU (Embedsiz, Mavi Etiketli ve Otomatik Düzeltmeli İstediğin Sürüm) ---
-    if (message.content.startsWith('.ara')) {
-        let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
+        // --- .ara KOMUTU (KUTUSUZ / EMBEDSIZ TAM İSTEDİĞİN SÜRÜM) ---
+        if (message.content.startsWith('.ara')) {
+            let aranan = message.content.replace('.ara', '').trim();
+            if (!aranan) return message.reply('❌ **Hata:** Bir isim, mevki veya bayrak gir kanka. Örn: `.ara fransa`');
 
-        // Sabitlenen sunucudan verileri güvenle çekip otomatik eşitliyoruz kanka
-        const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
-        try {
-            await guild.members.fetch(); 
-        } catch (fErr) {
-            console.error("Üyeler çekilemedi:", fErr);
-        }
-        
-        const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-        const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
-        const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
-
-        const sonuclar = guild.members.cache.filter(m => {
-            const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
-            const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
+            const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
+            try { await guild.members.fetch(); } catch (fErr) { console.error("Üyeler çekilemedi:", fErr); }
             
-            if (fransaAraniyorMu) {
-                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
-                       username.includes('fransa') || username.includes('fransiz');
-            }
-            return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
-        });
+            const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
+            const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
+            const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
-        if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
+            const sonuclar = guild.members.cache.filter(m => {
+                const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
+                const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
+                
+                if (fransaAraniyorMu) {
+                    return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
+                           username.includes('fransa') || username.includes('fransiz');
+                }
+                return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
+            });
 
-        // Kanka tam istediğin gibi: Embed kutusu tamamen kaldırıldı, düz yazı yapıldı!
-        // Satır başında takma adı basıyor, yanında jilet gibi bozulmayan Mavi Etiket `<@ID>` çıkıyor.
-        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
-        
-        // allowedMentions sayesinde kimseye bildirim (ping) gitmez ama etiketler mobilde de %100 mavi kalır
-        return message.reply({
-            content: `🔍 **Arama Sonuçları: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
-            allowedMentions: { users: [] }
-        });
-    }
-})
+            if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
+
+            const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
+            
+            // Burası tamamen düz yazıdır kanka, embed kutusu yoktur!
+            return message.reply({
+                content: `🔍 **Arama Sonuçları: "${aranan}"**\n\n${liste}\n\n📊 **${sonuclar.size} kişi bulundu.**`,
+                allowedMentions: { users: [] }
+            });
+        }
+    } catch (mainErr) { console.error(mainErr); }
+});
 
 // --- INTERACTION İŞLEYİCİ (Buton İşlemleri) ---
 client.on('interactionCreate', async (interaction) => {
@@ -231,6 +224,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+
 ;
                                      
         
