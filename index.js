@@ -2,13 +2,13 @@ const {
     Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
 } = require('discord.js');
 
+// Kanka botun çökmesini engelleyen en güvenli intent ayarları burası
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildPresences
+        GatewayIntentBits.GuildMembers
     ]
 });
 
@@ -20,24 +20,25 @@ const TICKET_KATEGORI_ID = '1514324399900196895'; // Ticket kategorisi
 let kayitSayilari = {}; 
 
 client.once('ready', () => {
-    console.log(`✅ Bot başarıyla aktif oldu: ${client.user.tag}`);
+    console.log(`✅ Bot tıkır tıkır çalışıyor: ${client.user.tag}`);
 });
 
-// Çökme Önleyici (Anti-Crash) - Botun kapanmasını engeller
+// Altyapı Çökme Önleyicileri (Konsola hata basar ama botu asla kapatmaz)
 process.on('unhandledRejection', (reason, p) => {
-    console.error(' [HATA ÖNLEYİCİ] Yakalanmayan Reddedilme:', reason);
+    console.error(' [HATA] Yakalanmayan Reddedilme:', reason);
 });
 process.on('uncaughtException', (err, origin) => {
-    console.error(' [HATA ÖNLEYİCİ] Yakalanmayan İstisna:', err);
+    console.error(' [HATA] Yakalanmayan İstisna:', err);
 });
 
 client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot || !message.guild) return;
 
+        // Yetkili veya Yönetici Kontrolü
         const isYetkili = message.member.roles.cache.has(YETKILI_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        // --- 🎫 TICKET KURULUM ---
+        // --- 🎫 TICKET KURULUM KOMUTU ---
         if (message.content === '.ticket-kur' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('ticket_olustur').setLabel('📩 DESTEK TALEBİ OLUŞTUR').setStyle(ButtonStyle.Primary)
@@ -45,6 +46,7 @@ client.on('messageCreate', async (message) => {
             return message.channel.send({ content: '👇 **Destek almak için aşağıdaki butona tıkla:**', components: [row] });
         }
 
+        // Yetkili değilse diğer komutları çalıştırma
         if (!isYetkili) return;
 
         // --- !k KOMUTU ---
@@ -74,23 +76,22 @@ client.on('messageCreate', async (message) => {
 
                 kayitSayilari[message.author.id] = (kayitSayilari[message.author.id] || 0) + 1;
             } catch (e) { 
-                message.reply('❌ Rolünüz yetmediği için bu üyenin ismini değiştiremedim.'); 
+                message.reply('❌ Yetki hatası! Üyenin ismini değiştiremedim.'); 
             }
         }
 
-        // --- .ara KOMUTU (SNT / Bayrak / Oyuncu Adı Arayan Kusursuz Sürüm) ---
+        // --- .ara KOMUTU (SNT / Bayrak / Oyuncu Adı Arayan, Embedsiz ve Mavi Etiketli Sürüm) ---
         if (message.content.startsWith('.ara')) {
             let aranan = message.content.replace('.ara', '').trim();
             if (!aranan) return message.reply('❌ **Hata:** Bir arama kriteri gir kanka. Örn: `.ara SNT` veya `.ara 🇲🇫`');
 
             const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
             
-            // Üyeleri çekerken hata çıkarsa botun çökmesini önlüyoruz
+            // Hafızayı güvenli şekilde tazeliyoruz
             try {
                 await guild.members.fetch();
-            } catch (fetchErr) {
-                console.error("Üyeler çekilemedi:", fetchErr);
-                return message.reply("❌ Sunucu üyeleri yüklenirken bir hata oluştu. Lütfen botun ayarlardan 'Members Intent' kısmını açtığından emin ol kanka!");
+            } catch (fErr) {
+                console.error("Üyeler fetch edilemedi:", fErr);
             }
             
             const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
@@ -103,18 +104,17 @@ client.on('messageCreate', async (message) => {
 
             if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-            // Embedsiz Düz Metin Formatı: Takma Ad ve Mavi Bozulmayan Etiket
+            // Tam istediğin format: Embed kutusu yok, düz yazı! Önce kendi takma adı, yanında mavi etiket!
             const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
             
-            // users: [] sayesinde kimseye ping (bildirim) gitmez ama jilet gibi Mavi Etiket olur
             return message.reply({
                 content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **Toplam ${sonuclar.size} kişi bulundu.**`,
-                allowedMentions: { users: [] }
+                allowedMentions: { users: [] } // Mavi yapar ama kimseye bildirim (ping) atmaz
             });
         }
 
-    } catch (mainErr) {
-        console.error("Mesaj işlenirken hata çıktı:", mainErr);
+    } catch (err) {
+        console.error("Mesaj döngüsünde kritik hata:", err);
     }
 });
 
@@ -166,13 +166,14 @@ client.on('interactionCreate', async (interaction) => {
                 const toplamKayit = kayitSayilari[interaction.user.id] || 0;
                 return interaction.reply({ content: `✅ **İşlem Başarılı:** ${member.displayName} kullanıcısına rolü verildi!\n📈 **Senin Toplam Kayıt Sayın:** \`${toplamKayit}\`` });
             } catch (e) {
-                return interaction.reply({ content: '❌ Rol verilirken bir hata çıktı! Botun rolü üyenin rolünden yukarıda olmalı.', ephemeral: true });
+                return interaction.reply({ content: '❌ Rol verilirken yetki hatası çıktı!', ephemeral: true });
             }
         }
     } catch (intErr) {
-        console.error("Buton işlenirken hata çıktı:", intErr);
+        console.error("Buton basılırken hata:", intErr);
     }
 });
 
 client.login(process.env.TOKEN);
+);
 
