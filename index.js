@@ -1,4 +1,4 @@
-const { 
+       const { 
     Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField 
 } = require('discord.js');
 
@@ -9,14 +9,15 @@ const client = new Client({
     ]
 });
 
+// Sabit IDs
 const SUNUCU_ID = '1511859511634301059'; 
 const YETKILI_ROL_ID = '1512316879551860796'; // !k komutu yetkilisi
-const BILGI_KANAL_ID = '1515123600502427739'; 
+const BILGI_KANAL_ID = '1515123600502427739'; // Transferlerin düşeceği log kanalı
 
 // Özel Yetki Rolleri
 const TD_ROL_ID = '1513270136176381953'; // .dm yetkilisi
 const BASKAN_ROL_ID = '1512323399467139213'; // .dm yetkilisi
-const OWNER_ROL_ID = '1513269024866304091'; // .dmlerkapat ve .dmlerac yetkilisi
+const OWNER_ID = '1513269024866304091'; // Sadece bu ID'ye sahip kişi açıp kapatabilir!
 
 const ROL_MAP = {
     'futbolcu': '1512130383070892094',
@@ -28,10 +29,10 @@ let kayitSayilari = {};
 let dmTeklifleriAcik = true; // DM durumunu hafızada tutan değişken
 
 client.once('ready', () => {
-    console.log(`✅ Kaliteli Transfer, Rol Sınırlandırması ve DM Aç/Kapat Sistemi Aktif: ${client.user.tag}`);
+    console.log(`✅ Owner ID Korumalı Sistem Aktif: ${client.user.tag}`);
 });
 
-// Çökme Önleyiciler
+// Çökme Önleyiciler (Botun kapanmasını engeller kanka)
 process.on('unhandledRejection', (reason, p) => { console.error(reason); });
 process.on('uncaughtException', (err, origin) => { console.error(err); });
 
@@ -39,18 +40,18 @@ client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot) return;
 
-        // --- 🔒 OWNER DM KONTROL KOMUTLARI ---
+        // --- 🔒 OWNER DM KONTROL KOMUTLARI (Sadece senin ID'n yapabilir) ---
         if (message.content === '.dmlerkapat') {
-            if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return message.reply('❌ **Hata:** Bu komutu sadece Kurucu / Owner kullanabilir kanka!');
+            if (message.author.id !== OWNER_ID) {
+                return message.reply('❌ **Hata:** Bu komutu sadece Kurucu (Owner) kullanabilir kanka!');
             }
             dmTeklifleriAcik = false;
             return message.reply('🔒 **Sistem Kilitlendi:** DM transfer teklifi gönderimleri geçici olarak durduruldu!');
         }
 
         if (message.content === '.dmlerac') {
-            if (!message.member.roles.cache.has(OWNER_ROL_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return message.reply('❌ **Hata:** Bu komutu sadece Kurucu / Owner kullanabilir kanka!');
+            if (message.author.id !== OWNER_ID) {
+                return message.reply('❌ **Hata:** Bu komutu sadece Kurucu (Owner) kullanabilir kanka!');
             }
             dmTeklifleriAcik = true;
             return message.reply('🔓 **Sistem Aktif:** DM transfer teklifi gönderimleri tekrar açıldı kanka!');
@@ -93,13 +94,11 @@ client.on('messageCreate', async (message) => {
 
         // --- .dm TRANSFER TEKLİF KOMUTU (Sadece Başkan ve TD) ---
         if (message.content.startsWith('.dm')) {
-            // Sadece Teknik Direktör veya Başkan rolü olanlar atabilir kanka
             const yetkiliMi = message.member.roles.cache.has(TD_ROL_ID) || message.member.roles.cache.has(BASKAN_ROL_ID) || message.member.permissions.has(PermissionsBitField.Flags.Administrator);
             if (!yetkiliMi) {
                 return message.reply('❌ **Hata:** Bu komutu sadece **Teknik Direktör** veya **Başkan** rolüne sahip kişiler kullanabilir kanka!');
             }
 
-            // Owner kapatmış mı kontrolü
             if (!dmTeklifleriAcik) {
                 return message.reply('❌ **Hata:** DM transfer teklifleri şu anda Kurucu / Owner tarafından kapatılmış durumda!');
             }
@@ -224,5 +223,6 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+;
                                      
         
