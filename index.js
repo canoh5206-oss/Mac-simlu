@@ -8,7 +8,7 @@ const client = new Client({
 });
 
 // Sabit IDs
-const OWNER_ROL_ID = '1513269024866304091'; // @everyone atabilen TEK rol (Owner)
+const OWNER_ROL_ID = '1513269024866304091'; // @everyone ve @here atabilen TEK rol (Owner)
 const SOHBET_KANAL_ID = '1513271753491616064'; // Küfür edilince bildirim giden kanal
 
 // Engellenen kelimelerin tam listesi
@@ -19,7 +19,7 @@ const KUFUR_LISTESI = [
 ];
 
 client.once('ready', () => {
-    console.log(`🛡️ Güncellenmiş Etiket ve Küfür Koruması Aktif: ${client.user.tag}`);
+    console.log(`🛡️ Full Koruma Sistemi (Etiket + Küfür) Aktif: ${client.user.tag}`);
 });
 
 // Çökme Önleyici
@@ -34,9 +34,9 @@ client.on('messageCreate', async (message) => {
         const mesajIcerikKucuk = message.content.toLowerCase().toLocaleLowerCase('tr-TR');
 
         // ==========================================
-        // 1. EVERYONE / HERE ETİKET KORUMASI
+        // 1. EVERYONE / HERE / HERW ETİKET KORUMASI
         // ==========================================
-        if (message.content.includes('@everyone') || message.content.includes('@here')) {
+        if (message.content.includes('@everyone') || message.content.includes('@here') || mesajIcerikKucuk.includes('@herw')) {
             // Sadece OWNER rolü olanlar atabilir, diğer herkes cezalandırılır
             const ownerMi = message.member.roles.cache.has(OWNER_ROL_ID);
             
@@ -46,11 +46,11 @@ client.on('messageCreate', async (message) => {
 
                 // 5 Dakika Mute (Timeout)
                 const besDakika = 5 * 60 * 1000;
-                await message.member.timeout(besDakika, 'Yetkisiz everyone/here etiketi kullanımı.').catch(() => {});
+                await message.member.timeout(besDakika, 'Yetkisiz etiket/duyuru kullanımı.').catch(() => {});
 
                 // Kullanıcıya DM Uyarı
                 await message.author.send({
-                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ **SUNUCU CEZA UYARISI** ⚠️\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${message.author.id}>,\n\nSunucumuzda yetkiniz olmadığı halde \`@everyone\` veya \`@here\` etiketini kullanmaya çalıştığınız tespit edilmiştir.\n\n⏳ **Uygulanan Ceza:** \`5 Dakika Susturma (Mute)\`\n\n👉 *Lütfen sunucu kurallarına riayet ediniz.*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+                    content: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ **SUNUCU CEZA UYARISI** ⚠️\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📢 **Sayın** <@${message.author.id}>,\n\nSunucumuzda yetkiniz olmadığı halde etiket veya duyuru kelimelerini (\`@everyone\`, \`@here\`, \`@herw\`) kullanmaya çalıştığınız tespit edilmiştir.\n\n⏳ **Uygulanan Ceza:** \`5 Dakika Susturma (Mute)\`\n\n👉 *Lütfen sunucu kurallarına riayet ediniz.*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
                 }).catch(() => {});
 
                 return;
@@ -103,4 +103,5 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
+;
 
