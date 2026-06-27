@@ -1,6 +1,5 @@
-
 const { 
-    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder 
+    Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField 
 } = require('discord.js');
 
 const client = new Client({
@@ -10,6 +9,7 @@ const client = new Client({
     ]
 });
 
+const SUNUCU_ID = '1511859511634301059'; // Verilen Sunucu ID'si
 const YETKILI_ROL_ID = '1512316879551860796'; // !k ve .ara kullanabilecek rol
 const YONETICI_ROL_ID = '1513269024866304091'; // Biletlere bakacak yönetici rolü
 const TICKET_KATEGORI_ID = '1514324399900196895'; // Biletlerin açılacağı kategori
@@ -64,40 +64,36 @@ client.on('messageCreate', async (message) => {
         } catch (e) { message.reply('❌ Yetki hatası! İsmi değiştirilemedi.'); }
     }
 
-    // --- .ara KOMUTU (18094.jpg Görselindeki Orijinal Sürüm) ---
+    // --- .ara KOMUTU (Gelişmiş Filtreli, SNT/Bayrak/İsim Arayan Esnek Sürüm) ---
     if (message.content.startsWith('.ara')) {
         let aranan = message.content.replace('.ara', '').trim();
-        if (!aranan) return message.reply('❌ **Hata:** Bir kriter gir kanka. Örn: `.ara SNT`');
+        if (!aranan) return message.reply('❌ **Hata:** Bir arama kriteri gir kanka. Örn: `.ara SNT` veya `.ara 🇲🇫`');
 
-        await message.guild.members.fetch(); 
+        // Sabitlenen sunucudan tüm üyeleri çekiyoruz ve hafızayı tazeliyoruz
+        const guild = client.guilds.cache.get(SUNUCU_ID) || message.guild;
+        await guild.members.fetch(); 
         
+        // Küçük-büyük harf duyarlılığını ortadan kaldırmak için Türkçe uyumlu arama terimi
         const arananKucuk = aranan.toLowerCase().toLocaleLowerCase('tr-TR');
-        const fransaKelimeleri = ['fransa', 'fransız', 'fransiz', 'fr', 'fra', '🇲🇫', '🇫🇷'];
-        const fransaAraniyorMu = fransaKelimeleri.includes(arananKucuk);
 
-        const sonuclar = message.guild.members.cache.filter(m => {
+        const sonuclar = guild.members.cache.filter(m => {
             const nick = m.nickname ? m.nickname.toLowerCase().toLocaleLowerCase('tr-TR') : '';
             const username = m.user.username.toLowerCase().toLocaleLowerCase('tr-TR');
             
-            if (fransaAraniyorMu) {
-                return nick.includes('🇲🇫') || nick.includes('🇫🇷') || nick.includes('fransa') || nick.includes('fransiz') ||
-                       username.includes('fransa') || username.includes('fransiz');
-            }
+            // Eğer yazılan kelime/emoji takma adda veya kullanıcı adında geçiyorsa eşleştir (SNT, bayrak, isim fark etmez)
             return nick.includes(arananKucuk) || username.includes(arananKucuk) || (m.nickname && m.nickname.includes(aranan));
         });
 
         if (sonuclar.size === 0) return message.reply(`🔍 Aradığın kriterde (${aranan}) kimseyi bulamadım kanka.`);
 
-        // İsimlerin arkasındaki @ kısımları sunucudaki adlarında olduğu için direkt m.displayName yetiyor
-        const liste = sonuclar.map(m => `👤 ${m.displayName}`).slice(0, 15).join('\n');
+        // Kanka tam istediğin gibi: Embedsiz, Düz Yazı! Satır başında Takma Adı, yanında jilet gibi Mavi Etiket!
+        const liste = sonuclar.map(m => `👤 **${m.displayName}** - <@${m.user.id}>`).slice(0, 20).join('\n');
         
-        const embed = new EmbedBuilder()
-            .setTitle(`🔍 Arama Sonuçları: "${aranan}"`)
-            .setDescription(liste)
-            .setColor(0xF1C40F)
-            .setFooter({ text: `${sonuclar.size} kişi bulundu.` });
-
-        message.reply({ embeds: [embed] });
+        // allowedMentions içindeki users: [] pingleme yapılmasını engeller, ama etiketleri %100 mavi gösterir!
+        message.reply({
+            content: `🔍 **ARAMA SONUÇLARI: "${aranan}"**\n\n${liste}\n\n📊 **Toplam ${sonuclar.size} kişi bulundu.**`,
+            allowedMentions: { users: [] }
+        });
     }
 });
 
@@ -148,10 +144,9 @@ client.on('interactionCreate', async (interaction) => {
             const toplamKayit = kayitSayilari[interaction.user.id] || 0;
             return interaction.reply({ content: `✅ **İşlem Başarılı:** ${member.displayName} kullanıcısına rolü verildi!\n📈 **Senin Toplam Kayıt Sayın:** \`${toplamKayit}\`` });
         } catch (e) {
-            return interaction.reply({ content: '❌ Rol verilirken bir hata çıktı!', ephemeral: true });
+            return interaction.reply({ content: '❌ Rol verilen kullanıcı bulunamadı veya yetki yetersiz!', ephemeral: true });
         }
     }
 });
 
 client.login(process.env.TOKEN);
-                
