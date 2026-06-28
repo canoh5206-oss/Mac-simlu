@@ -1,4 +1,5 @@
-    const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+
+const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -11,7 +12,7 @@ const client = new Client({
 // SABİT CONFIG VE ID AYARLARI
 // ==========================================
 const KAYIT_YETKILI_ROLLER = ['1520768910947782687']; 
-const TAKIM_YETKILI_ROLLER = ['1519414839561158828']; 
+const TAKIM_YETKILI_ROLLER = ['1519414839561158828']; // Aynı zamanda ekonomi yetkilisi
 const OYUNCU_YETKILI_ROLLER = ['1520770167720771644', '1520770097558585344'];
 const DEGER_YETKILI_ROL = '1520768962193915945'; 
 
@@ -36,55 +37,57 @@ function veriGarantiEt(id) {
     if (!oyuncuVerileri[id]) {
         oyuncuVerileri[id] = { ant: 0, deger: "Girilmedi", bakiye: 0 };
     }
-    if (oyuncuVerileri[id].bakiye === undefined) {
+    if (oyuncuVerileri[id].bakiye === undefined || oyuncuVerileri[id].bakiye === null) {
         oyuncuVerileri[id].bakiye = 0;
+    }
+    if (!oyuncuVerileri[id].deger) {
+        oyuncuVerileri[id].deger = "Girilmedi";
     }
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Görseldeki Giriş Tasarımı ve Ekonomi Sistemi Aktif Kanka!`);
+    console.log(`⚽ Nors Altyapı, Ekonomi ve 18194.jpg Giriş Sistemi Tamamen Aktif Kanka!`);
 });
 
-process.on('unhandledRejection', (reason, p) => { console.error(reason); });
-process.on('uncaughtException', (err, origin) => { console.error(err); });
+process.on('unhandledRejection', (reason, p) => { console.error("Yakalanamayan Hata:", reason); });
+process.on('uncaughtException', (err, origin) => { console.error("Kritik Hata:", err); });
 
 // ==========================================
 // GÜVENLİKLİ GİRİŞ SİSTEMİ (18194.jpg TASARIMI)
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
-    const kayitKanali = member.guild.channels.cache.get(KAYIT_ODASI_ID);
-    if (!kayitKanali) return;
+    try {
+        const kayitKanali = member.guild.channels.cache.get(KAYIT_ODASI_ID);
+        if (!kayitKanali) return;
 
-    const uyeSayisi = member.guild.memberCount;
-    const olusturmaTarihi = member.user.createdAt;
-    const simdi = new Date();
-    const hesapYasiGun = Math.floor((simdi - olusturmaTarihi) / (1000 * 60 * 60 * 24));
-    
-    const guvenilirMi = hesapYasiGun >= 30;
-    const guvenlikDurumu = guvenilirMi ? '🔹 Güvenilir!' : '⚠️ Güvenilir Değil (Şüpheli)!';
+        const uyeSayisi = member.guild.memberCount;
+        const olusturmaTarihi = member.user.createdAt;
+        const hesapYasiGun = Math.floor((new Date() - olusturmaTarihi) / (1000 * 60 * 60 * 24));
+        
+        const guvenilirMi = hesapYasiGun >= 30;
+        const guvenlikDurumu = guvenilirMi ? '🔹 Güvenilir!' : '⚠️ Güvenilir Değil (Şüpheli)!';
 
-    // Görseldeki şık embed yapısı
-    const girisEmbed = new EmbedBuilder()
-        .setAuthor({ name: `Yeni Bir Kullanıcı Katıldı, 👋\n${member.user.username}!`, iconURL: member.guild.iconURL({ dynamic: true }) })
-        .setDescription(`👋 **Sunucumuza hoş geldin** <@${member.id}>\n\n🔹 **Seninle birlikte ${uyeSayisi} kişiyiz.**\n\n\n☀️ **Hesap oluşturulma tarihi:** ${olusturmaTarihi.toLocaleDateString('tr-TR')}  ${olusturmaTarihi.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}\n🦹‍♀️ **Güvenilirlik durumu:**\n☑️ **${guvenlikDurumu}**`)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setColor(0x1F2225)
-        .setFooter({ text: 'Nors', iconURL: client.user.displayAvatarURL() });
+        const girisEmbed = new EmbedBuilder()
+            .setAuthor({ name: `Yeni Bir Kullanıcı Katıldı, 👋\n${member.user.username}!`, iconURL: member.guild.iconURL({ dynamic: true }) || client.user.displayAvatarURL() })
+            .setDescription(`👋 **Sunucumuza hoş geldin** <@${member.id}>\n\n🔹 **Seninle birlikte ${uyeSayisi} kişiyiz.**\n\n\n☀️ **Hesap oluşturulma tarihi:** ${olusturmaTarihi.toLocaleDateString('tr-TR')}  ${olusturmaTarihi.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}\n🦹‍♀️ **Güvenilirlik durumu:**\n☑️ **${guvenlikDurumu}**`)
+            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+            .setColor(0x1F2225)
+            .setFooter({ text: 'Nors', iconURL: client.user.displayAvatarURL() });
 
-    // "Normal Kayıt" Butonu
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`btn_kayit_baslat_${member.id}`)
-            .setLabel('🪪 Normal Kayıt')
-            .setStyle(ButtonStyle.Primary)
-    );
+        // Buton ID'si hatasız ayrışması için alt çizgiler düzenlendi
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`btn_kayit_baslat_${member.id}`)
+                .setLabel('🪪 Normal Kayıt')
+                .setStyle(ButtonStyle.Primary)
+        );
 
-    // Dışarıdaki etiket yazısı tam görseldeki gibi
-    kayitKanali.send({ 
-        content: `📢 <@&1520768910947782687>, <@${member.id}> sunucuya giriş yaptı.`, 
-        embeds: [girisEmbed],
-        components: [row]
-    }).catch(() => {});
+        kayitKanali.send({ 
+            content: `📢 <@&1520768910947782687>, <@${member.id}> sunucuya giriş yaptı.`, 
+            embeds: [girisEmbed],
+            components: [row]
+        }).catch(() => {});
+    } catch (e) { console.error(e); }
 });
 
 // ==========================================
@@ -120,17 +123,17 @@ client.on('messageCreate', async (message) => {
                     `💰 **Ekonomi Komutları:**\n` +
                     `• **.bakiye [@üye]** - Cüzdan parasını gösterir.\n` +
                     `• **.send @üye [Miktar]** - Oyuncuya para transfer eder.\n` +
-                    `• **.paraver @üye [Miktar]** - Yetkili para ekler.\n` +
+                    `• **.paraver @üye [Miktar]** / **.paraal @üye [Miktar]** - Yetkili para ekler.\n` +
                     `• **.paracikar @üye [Miktar]** - Yetkili para siler.\n\n` +
                     `📥 **Yönetim & Kayıt:**\n` +
-                    `• **-k @üye [İsim]** - Serbest kayıt başlatır.\n` +
+                    `• **-k @üye [İstediğin İsim]** - Serbest isimle kayıt başlatır.\n` +
                     `• **.degerver @üye [Miktar]** / **.degercikar @üye [Miktar]**`
                 )
                 .setFooter({ text: 'Nors Altyapı Sistemi' });
             return message.reply({ embeds: [embed] });
         }
 
-        // --- -k VEYA -kayit KOMUTU ---
+        // --- -k VEYA -kayit KOMUTU (SERBEST FORMAT) ---
         if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) return;
 
@@ -138,7 +141,7 @@ client.on('messageCreate', async (message) => {
             if (!yetkiliMi) return message.reply('❌ Kanka bu komutu kullanmak için kayıt yetkilisi rolüne sahip olmalısın.');
 
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `-k @üye İsim`');
+            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `-k @üye İstediğin İsim`');
 
             const metinKismi = icerik.substring(icerik.indexOf('>') + 1).trim();
             if (!metinKismi) return message.reply('❌ Lütfen üyenin sunucudaki isminin ne olacağını yaz kanka!');
@@ -191,10 +194,10 @@ client.on('messageCreate', async (message) => {
             return message.reply(`✅ <@${message.author.id}>, <@${hedefUye.id}> kişisine **${miktar.toLocaleString('tr-TR')} ₺** gönderdi!`);
         }
 
-        // --- ECONOMY: .paraver ---
+        // --- ECONOMY: .paraver VEYA .paraal (YETKİLİ) ---
         if (icerikKucuk.startsWith('.paraver') || icerikKucuk.startsWith('.paraal')) {
             const yetkiliMi = message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id));
-            if (!yetkiliMi) return message.reply('❌ Bu komut için yetkin yok kanka!');
+            if (!yetkiliMi) return message.reply('❌ Bu komut için para yetkin yok kanka!');
 
             const hedefUye = message.mentions.members.first();
             if (!hedefUye) return message.reply('❌ Örn: `.paraver @üye 10000`');
@@ -208,10 +211,10 @@ client.on('messageCreate', async (message) => {
             return message.reply(`💰 <@${hedefUye.id}> hesabına **${miktar.toLocaleString('tr-TR')} ₺** eklendi.`);
         }
 
-        // --- ECONOMY: .paracikar ---
+        // --- ECONOMY: .paracikar (YETKİLİ) ---
         if (icerikKucuk.startsWith('.paracikar')) {
             const yetkiliMi = message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id));
-            if (!yetkiliMi) return message.reply('❌ Bu komut için yetkin yok kanka!');
+            if (!yetkiliMi) return message.reply('❌ Bu komut için para yetkin yok kanka!');
 
             const hedefUye = message.mentions.members.first();
             if (!hedefUye) return message.reply('❌ Örn: `.paracikar @üye 5000`');
@@ -374,30 +377,18 @@ client.on('messageCreate', async (message) => {
 });
 
 // ==========================================
-// BUTON ETKİLEŞİM MERKEZİ (18194.jpg DAHİL)
+// BUTON ETKİLEŞİM MERKEZİ (HATASIZLAŞTIRILDI)
 // ==========================================
 client.on('interactionCreate', async (interaction) => {
     try {
         if (!interaction.isButton()) return;
 
-        // --- 1. GÖRSELDEKİ "NORMAL KAYIT" BUTON BASILMA DURUMU ---
+        // --- 1. GÖRSELDEKİ "NORMAL KAYIT" BUTONU ---
         if (interaction.customId.startsWith('btn_kayit_baslat_')) {
             const yetkiliMi = interaction.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id));
             if (!yetkiliMi) {
                 return interaction.reply({ content: '❌ Bu butona basarak kayıt başlatmak için Kayıt Yetkilisi olmalısın kanka!', ephemeral: true });
             }
 
-            const hedefUyeId = interaction.customId.split('_')[3];
-            return interaction.reply({ 
-                content: `🚀 Kayıt başlatıldı kanka! Lütfen sohbet alanına direkt \`-k <@${hedefUyeId}> İstediğin İsim\` yazarak işlemi tamamla.`, 
-                ephemeral: true 
-            });
-        }
-
-        // --- 2. ROL SEÇİM BUTONLARI (-k KOMUTUNDAN SONRA GELEN) ---
-        const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
-        if (prefix !== 'k') return;
-
-        const guild = interaction.guild;
-        const hedefUye
-                
+            // ID parçalama hatası tamamen düzeltildi
+            const hedefUyeId = interaction.customId.replace('btn_kayit_baslat_', 
