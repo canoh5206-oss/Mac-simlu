@@ -13,11 +13,11 @@ const client = new Client({
 const KAYIT_YETKILI_ROLLER = ['1520768910947782687']; 
 const TAKIM_YETKILI_ROLLER = ['1519414839561158828'];
 const OYUNCU_YETKILI_ROLLER = ['1520770167720771644', '1520770097558585344'];
-const DEGER_YETKILI_ROL = '1520768962193915945'; // Değer yetkilisi
+const DEGER_YETKILI_ROL = '1520768962193915945'; 
 
 const KAYIT_ODASI_ID = '1520767182563311737'; 
 const KAYIT_DUYURU_KANAL_ID = '1520767204746858567'; 
-const DEGER_BILDIRI_KANAL_ID = '1520767223646519328'; // Değer log kanalı
+const DEGER_BILDIRI_KANAL_ID = '1520767223646519328'; 
 
 const ROL_FUTBOLCU = '1520770217041727598';
 const ROL_TD = '1520770167720771644';
@@ -26,14 +26,13 @@ const ROL_BASKAN = '1520770097558585344';
 // Hafıza Veritabanları
 let kayitVerileri = {}; 
 let takimlar = {}; 
-let oyuncuVerileri = {}; // { "uyeId": { ant: 0, deger: "0M€" } }
+let oyuncuVerileri = {}; 
 
 let antrenmanCooldown = new Map(); 
 let penaltiCooldown = new Map();   
 
 const KUFUR_LISTESI = ['amk', 'aq', 'orospu', 'piç', 'sik', 'göt', 'yarrak', '31', 'oe', 'oropusu'];
 
-// Yardımcı fonksiyon: Oyuncu verisi yoksa oluşturur
 function veriGarantiEt(id) {
     if (!oyuncuVerileri[id]) {
         oyuncuVerileri[id] = { ant: 0, deger: "Girilmedi" };
@@ -41,20 +40,47 @@ function veriGarantiEt(id) {
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Nors Altyapı ve Değer Sistemi Aktif Kanka! Giriş: ${client.user.tag}`);
+    console.log(`⚽ Nors Altyapı, Giriş Güvenliği ve Değer Sistemi Aktif Kanka!`);
 });
 
 process.on('unhandledRejection', (reason, p) => { console.error(reason); });
 process.on('uncaughtException', (err, origin) => { console.error(err); });
 
-// Sunucuya biri katıldığında
+// ==========================================
+// GÜVENLİKLİ GİRİŞ SİSTEMİ
+// ==========================================
 client.on('guildMemberAdd', async (member) => {
     const kayitKanali = member.guild.channels.cache.get(KAYIT_ODASI_ID);
-    if (kayitKanali) {
-        kayitKanali.send({ content: `📥 <@${member.id}> sunucuya katıldı! <@&1520768910947782687> yetkilileri lütfen kaydet kanka.` }).catch(() => {});
-    }
+    if (!kayitKanali) return;
+
+    const olusturmaTarihi = member.user.createdAt;
+    const simdi = new Date();
+    const hesapYasiGun = Math.floor((simdi - olusturmaTarihi) / (1000 * 60 * 60 * 24));
+    
+    const guvenilirMi = hesapYasiGun >= 30;
+    const guvenlikDurumu = guvenilirMi ? '✅ Güvenilir Üye' : '⚠️ Güvenilir Değil (Şüpheli Hesap)';
+    const embedRenk = guvenilirMi ? 0x00FF00 : 0xFF0000;
+
+    const girisEmbed = new EmbedBuilder()
+        .setTitle('📥 Sunucuya Yeni Biri Katıldı!')
+        .setDescription(`Kayıt odasına hoş geldin <@${member.id}>! Lütfen yetkililerin seni kaydetmesini bekle kanka.`)
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+        .setColor(embedRenk)
+        .addFields(
+            { name: '📅 Hesap Oluşturma Tarihi', value: `\`${olusturmaTarihi.toLocaleDateString('tr-TR')}\` (${hesapYasiGun} gün önce)`, inline: false },
+            { name: '🛡️ Güvenlik Analizi', value: `**${guvenlikDurumu}**`, inline: false }
+        )
+        .setFooter({ text: 'Nors Giriş Kontrol Sistemi' });
+
+    kayitKanali.send({ 
+        content: `🔔 <@&1520768910947782687> biri katıldı kayıt et!`, 
+        embeds: [girisEmbed] 
+    }).catch(() => {});
 });
 
+// ==========================================
+// MESAJ MERKEZİ (KOMUTLAR VE KORUMALAR)
+// ==========================================
 client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot || !message.guild) return;
@@ -70,8 +96,8 @@ client.on('messageCreate', async (message) => {
             return message.channel.send(`⚠️ <@${message.author.id}> küfür ettiği için **2 dakika** susturuldu kanka.`);
         }
 
-        // --- 1. -kayit KOMUTU ---
-        if (icerikKucuk.startsWith('-kayit')) {
+        // --- 1. -k VEYA -kayit KOMUTLARI ---
+        if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) {
                 const hataEmbed = new EmbedBuilder()
                     .setTitle('🔻 HATA!')
@@ -84,12 +110,11 @@ client.on('messageCreate', async (message) => {
             if (!yetkiliMi) return message.reply('❌ Kanka bu komutu kullanmak için kayıt yetkilisi rolüne sahip olmalısın.');
 
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `-kayit @üye İsim | Mevki | Değer`');
+            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `-k @üye İsim | Mevki | Değer`');
 
             const metinKismi = icerik.substring(icerik.indexOf('>') + 1).trim();
             if (!metinKismi.includes('|')) return message.reply('❌ Format hatalı kanka! Örn: `İsim | Mevki | Değer` şeklinde yazmalısın.');
 
-            // Değeri hafızaya da çekelim
             const parcalar = metinKismi.split('|');
             const baslangicDeger = parcalar[parcalar.length - 1].trim();
             veriGarantiEt(hedefUye.id);
@@ -109,7 +134,7 @@ client.on('messageCreate', async (message) => {
             });
         }
 
-        // --- 2. .ant KOMUTU (SIRALI İLERLEME SİSTEMİ) ---
+        // --- 2. .ant KOMUTU (SIRALI 1/5, 2/5 DÜZENİ) ---
         if (icerikKucuk === '.ant') {
             const id = message.author.id;
             if (antrenmanCooldown.has(id) && Date.now() - antrenmanCooldown.get(id) < 3600000) {
@@ -133,7 +158,7 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [embed] });
         }
 
-        // --- 3. .pen KOMUTU ---
+        // --- 3. .pen KOMUTU (1 SAAT COOLDOWN) ---
         if (icerikKucuk === '.pen') {
             const id = message.author.id;
             if (penaltiCooldown.has(id) && Date.now() - penaltiCooldown.get(id) < 3600000) {
@@ -154,7 +179,7 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [embed] });
         }
 
-        // --- 4. .degerver KOMUTU (YENİ) ---
+        // --- 4. .degerver KOMUTU ---
         if (icerikKucuk.startsWith('.degerver')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) {
                 return message.reply('❌ Kanka bu komutu kullanmaya yetkin yok!');
@@ -165,12 +190,11 @@ client.on('messageCreate', async (message) => {
 
             const argumanlar = icerik.split(' ');
             const yeniDeger = argumanlar[argumanlar.length - 1]; 
-            if (!yeniDeger || yeniDeger.includes('@')) return message.reply('❌ Lütfen verilecek değer miktarını yaz kanka! Örn: `15M€`');
+            if (!yeniDeger || yeniDeger.includes('@')) return message.reply('❌ Lütfen verilecek değer miktarını yaz kanka!');
 
             veriGarantiEt(hedefUye.id);
             oyuncuVerileri[hedefUye.id].deger = yeniDeger;
 
-            // Nickname güncelleme (Mevcut ismindeki son değeri değiştirir veya ekler)
             let eskiNick = hedefUye.displayName;
             let yeniNick = eskiNick;
             if (eskiNick.includes('|')) {
@@ -182,7 +206,6 @@ client.on('messageCreate', async (message) => {
             }
             await hedefUye.setNickname(yeniNick).catch(() => {});
 
-            // Değer bildiri kanalına log gönderme
             const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
             if (bildiriKanali) {
                 const logEmbed = new EmbedBuilder()
@@ -192,18 +215,17 @@ client.on('messageCreate', async (message) => {
                     .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }));
                 bildiriKanali.send({ embeds: [logEmbed] });
             }
-
-            return message.reply(`✅ <@${hedefUye.id}> kullanıcısının değeri **${yeniDeger}** yapıldı ve bildirisi geçildi!`);
+            return message.reply(`✅ Değer güncellendi ve bildirisi geçildi!`);
         }
 
-        // --- 5. .degercikar KOMUTU (YENİ) ---
+        // --- 5. .degercikar KOMUTU ---
         if (icerikKucuk.startsWith('.degercikar')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) {
                 return message.reply('❌ Kanka bu komutu kullanmaya yetkin yok!');
             }
 
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Değeri düşürülecek veya silinecek oyuncuyu etiketle kanka! Örn: `.degercikar @üye 5M€` veya `0M€`');
+            if (!hedefUye) return message.reply('❌ Değeri düşürülecek oyuncuyu etiketle kanka! Örn: `.degercikar @üye 5M€`');
 
             const argumanlar = icerik.split(' ');
             const dusenDeger = argumanlar[argumanlar.length - 1];
@@ -225,15 +247,14 @@ client.on('messageCreate', async (message) => {
                 const logEmbed = new EmbedBuilder()
                     .setTitle('📉 Değer Azaltma / Düzeltme Bildirisi')
                     .setColor(0xFF0000)
-                    .setDescription(`⚠️ <@${hedefUye.id}> oyuncusunun değeri **${dusenDeger}** olarak geri çekildi/düzeltildi.\n\n👤 **İşlemi Yapan Yetkili:** <@${message.author.id}>`)
+                    .setDescription(`⚠️ <@${hedefUye.id}> oyuncusunun değeri **${dusenDeger}** olarak düzeltildi.\n\n👤 **İşlemi Yapan Yetkili:** <@${message.author.id}>`)
                     .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }));
                 bildiriKanali.send({ embeds: [logEmbed] });
             }
-
-            return message.reply(`⚠️ <@${hedefUye.id}> kullanıcısının değeri **${dusenDeger}** seviyesine indirildi kanka.`);
+            return message.reply(`⚠️ Değer **${dusenDeger}** seviyesine indirildi.`);
         }
 
-        // --- 6. .profil KOMUTU (YENİ) ---
+        // --- 6. .profil KOMUTU ---
         if (icerikKucuk.startsWith('.profil')) {
             const hedefUye = message.mentions.members.first() || message.member;
             veriGarantiEt(hedefUye.id);
@@ -241,7 +262,6 @@ client.on('messageCreate', async (message) => {
             const antDurum = oyuncuVerileri[hedefUye.id].ant;
             const piyasaDegeri = oyuncuVerileri[hedefUye.id].deger;
 
-            // Saatlik penaltı durumunu kontrol etme
             let penDurum = '✅ Atış Hazır';
             if (penaltiCooldown.has(hedefUye.id) && Date.now() - penaltiCooldown.get(hedefUye.id) < 3600000) {
                 const kalanDk = Math.ceil((3600000 - (Date.now() - penaltiCooldown.get(hedefUye.id))) / 60000);
@@ -257,33 +277,17 @@ client.on('messageCreate', async (message) => {
                     { name: '🥅 Penaltı Durumu', value: `\`${penDurum}\``, inline: true },
                     { name: '💰 Güncel Değer', value: `\`${piyasaDegeri}\``, inline: true }
                 )
-                .setFooter({ text: 'Nors Futbolcu İstatistik Kartı' });
+                .setFooter({ text: 'Nors Futbolcu Kartı' });
 
             return message.reply({ embeds: [profilEmbed] });
         }
 
-        // --- DİĞER ESKİ KOMUTLAR (.takimkur, .takimliste, .oyuncuekle, .oyuncucikar, .post, .yardim) ---
-        if (icerikKucuk === '.yardim') {
-            const embed = new EmbedBuilder()
-                .setTitle('📋 Nors Bot Komut Listesi')
-                .setColor(0x2F3136)
-                .setDescription(
-                    `**.profil [@üye]** - Antrenman, penaltı ve değer istatistiklerini gösterir.\n` +
-                    `**.degerver @üye <Miktar>** - Değer yetkilileri için oyuncu değeri girer.\n` +
-                    `**.degercikar @üye <Miktar>** - Değeri düşürür veya düzeltir.\n` +
-                    `**.ant** - Sıralı antrenman yapar (1/5, 2/5, 3/5...).\n` +
-                    `**.pen** - Saatlik şut çeker.\n` +
-                    `**.takimkur <İsim>** / **.takimliste**\n` +
-                    `**-kayit @üye** - Kayıt odasında kayıt başlatır.`
-                );
-            return message.reply({ embeds: [embed] });
-        }
-
+        // --- 7. DİĞER KOMUTLAR (.takimkur, .takimliste, .oyuncuekle, .oyuncucikar, .post) ---
         if (icerikKucuk.startsWith('.takimkur')) {
             const yetkiliMi = message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id));
-            if (!yetkiliMi) return message.reply('❌ Yetkiniz yok kanka.');
+            if (!yetkiliMi) return message.reply('❌ Yetkiniz yok.');
             const takimAdi = icerik.substring(9).trim();
-            if (!takimAdi) return message.reply('❌ Takım adı girilmedi kanka.');
+            if (!takimAdi) return message.reply('❌ Takım adı girilmedi.');
             if (takimlar[takimAdi]) return message.reply('❌ Takım zaten var.');
             takimlar[takimAdi] = { baskan: 'Girilmedi', oyuncular: [] };
             return message.reply(`✅ **${takimAdi}** kuruldu!`);
@@ -327,16 +331,16 @@ client.on('messageCreate', async (message) => {
 });
 
 // ==========================================
-// BUTTON INTERACTION (KAYIT BUTONLARI)
+// BUTTON INTERACTION (KAYIT TAMAMLAMA)
 // ==========================================
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
-    const [prefix, rolTipi, hedefId] = interaction.customId.split('_');
+    const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
     if (prefix !== 'k') return;
 
     try {
         const guild = interaction.guild;
-        const hedefUye = await guild.members.fetch(hedefId).catch(() => null);
+        const hedefUye = await guild.members.fetch(deleteId).catch(() => null);
         if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı bulunamadı kanka!', ephemeral: true });
 
         let rolId = ''; let rolIsmi = '';
@@ -363,5 +367,6 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+                
             
                     
