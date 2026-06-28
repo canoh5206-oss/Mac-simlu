@@ -11,6 +11,7 @@ const client = new Client({
 const OWNER_ROL_ID = '1513269024866304091'; // Muaf 1. Rol (Owner)
 const MUAF_ROL_ID = '1513269573451911259';  // Muaf 2. Rol
 const KAYIT_YETKILI_ROL_ID = '1512316879551860796'; // Sadece bu rol kayıt yapabilir!
+const KAYIT_ODASI_ID = '1512128053810303116'; // Sadece burada kayıt yapılacak!
 const SOHBET_KANAL_ID = '1513271753491616064'; // Kayıt duyuru ve küfür uyarısı kanalı
 
 // Kayıt Rol IDs
@@ -30,7 +31,7 @@ const KUFUR_LISTESI = [
 ];
 
 client.once('ready', () => {
-    console.log(`🛡️ Sistem Aktif (Loglar Silindi, Sadece Koruma ve Kayıt Aktif) kanka: ${client.user.tag}`);
+    console.log(`🛡️ Sistem Aktif (Kayıt Odası Sınırı ve Görsel Tasarımlar Eklendi) kanka: ${client.user.tag}`);
 });
 
 // Çökme Önleyiciler
@@ -50,8 +51,20 @@ client.on('messageCreate', async (message) => {
 
         // --- 1. KAYIT KOMUTLARI ---
         
-        // !k Komutu (Sadece kayıt yetkilisi rolü olanlar kullanabilir)
-        if (message.content.startsWith('!k')) {
+        // !k veya .k Komutu Kontrolü
+        if (message.content.startsWith('!k') || message.content.startsWith('.k')) {
+            // Kayıt odası dışındaysa hata mesajı gönder (Görsel 18162.jpg tarzı)
+            if (message.channel.id !== KAYIT_ODASI_ID) {
+                const hataEmbed = new EmbedBuilder()
+                    .setTitle('❌ HATA!')
+                    .setDescription(`Komut, bu kanalda kullanılmaz. Lütfen seçili olan <#${KAYIT_ODASI_ID}> kanalında kullanın.`)
+                    .setColor(0xFF0000) // Kırmızı şerit
+                    .setFooter({ text: `Nors | bugün saat ${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}` });
+                
+                return message.reply({ embeds: [hataEmbed] });
+            }
+
+            // Yetki kontrolü
             if (!kayitYetkilisiMi) return message.reply('❌ Kanka bu komutu kullanmak için <@&1512316879551860796> rolüne sahip olman gerekiyor!');
 
             const hedefUye = message.mentions.members.first();
@@ -76,23 +89,24 @@ client.on('messageCreate', async (message) => {
             });
         }
 
-        // !kayitsayi Komutu (Herkes bakabilir)
-        if (message.content.startsWith('!kayitsayi')) {
+        // !kayitsayi veya .kayitsayi Komutu Kontrolü (Görsel 18160_2.jpg tarzı)
+        if (message.content.startsWith('!kayitsayi') || message.content.startsWith('.kayitsayi')) {
             const siraliListe = Object.entries(kayitVerileri)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 10);
 
             if (siraliListe.length === 0) return message.reply('📭 Henüz hiç kayıt yapılmamış kanka.');
 
-            let descriptionMetni = '🏆 **En çok üye kaydedenler**\n\n';
-            siraliListe.forEach(([yetkiliId, sayi], index) => {
-                descriptionMetni += `${index + 1}. <@${yetkiliId}> kullanıcısının toplam kayıt sayısı: **${sayi}**\n`;
+            let descriptionMetni = 'En çok üye kaydedenler\n\n';
+            siraliListe.forEach(([yetkiliId, sayi]) => {
+                // Görseldeki gibi alt satıra geçecek şekilde ayarlandı kanka
+                descriptionMetni += `<@${yetkiliId}>'ın toplam kayıt sayısı:\n${sayi}\n\n`;
             });
 
             const embed = new EmbedBuilder()
                 .setTitle('📊 Kayıt Sıralaması!')
                 .setDescription(descriptionMetni)
-                .setColor(0x5865F2)
+                .setColor(0x2F3136) // Koyu Discord teması rengi
                 .setThumbnail(message.guild.iconURL({ dynamic: true }))
                 .setFooter({ text: 'Nors Kayıt Sistemi' });
 
@@ -160,7 +174,7 @@ client.on('interactionCreate', async (interaction) => {
         let verilecekRolId = '';
         let rolIsmi = '';
 
-        if (secilenRol === 'futbolcu') { verilecekRolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
+        if (secilenRol === 'futbolcu') { verilecekRolId = ROL_FUTBULCU = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
         else if (secilenRol === 'baskan') { verilecekRolId = ROL_BASKAN; rolIsmi = 'Takım Başkanı'; }
         else if (secilenRol === 'td') { verilecekRolId = ROL_TD; rolIsmi = 'Teknik Direktör'; }
         else if (secilenRol === 'uye') { verilecekRolId = ROL_UYE; rolIsmi = 'Üye'; }
@@ -174,7 +188,7 @@ client.on('interactionCreate', async (interaction) => {
         // Orijinal mesajı sil
         await interaction.message.delete().catch(() => {});
 
-        // Sohbet Kanalına Duyuru Gönder (Görsel 18159.jpg tarzı)
+        // Sohbet Kanalına Duyuru Gönder
         const sohbetKanali = guild.channels.cache.get(SOHBET_KANAL_ID) || await guild.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
         if (sohbetKanali) {
             await sohbetKanali.send({ content: `📢 **<@${hedefUye.id}> aramıza katıldı.**` }).catch(() => {});
@@ -198,6 +212,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+        
                 
 
           
