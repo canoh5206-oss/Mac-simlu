@@ -390,5 +390,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
         if (prefix !== 'k') return;
+});
 
+client.login(process.env.TOKEN);
         
