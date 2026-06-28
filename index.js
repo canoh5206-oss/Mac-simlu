@@ -31,7 +31,7 @@ const KUFUR_LISTESI = [
 ];
 
 client.once('ready', () => {
-    console.log(`🛡️ Sistem Aktif (Kayıt Odası Sınırı ve Görsel Tasarımlar Eklendi) kanka: ${client.user.tag}`);
+    console.log(`🛡️ Sistem Aktif (-k Komut Düzeni Aktif) kanka: ${client.user.tag}`);
 });
 
 // Çökme Önleyiciler
@@ -51,14 +51,14 @@ client.on('messageCreate', async (message) => {
 
         // --- 1. KAYIT KOMUTLARI ---
         
-        // !k veya .k Komutu Kontrolü
-        if (message.content.startsWith('!k') || message.content.startsWith('.k')) {
-            // Kayıt odası dışındaysa hata mesajı gönder (Görsel 18162.jpg tarzı)
+        // -k Komutu Kontrolü
+        if (message.content.startsWith('-k')) {
+            // Kayıt odası dışındaysa hata mesajı gönder
             if (message.channel.id !== KAYIT_ODASI_ID) {
                 const hataEmbed = new EmbedBuilder()
                     .setTitle('❌ HATA!')
                     .setDescription(`Komut, bu kanalda kullanılmaz. Lütfen seçili olan <#${KAYIT_ODASI_ID}> kanalında kullanın.`)
-                    .setColor(0xFF0000) // Kırmızı şerit
+                    .setColor(0xFF0000) 
                     .setFooter({ text: `Nors | bugün saat ${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}` });
                 
                 return message.reply({ embeds: [hataEmbed] });
@@ -84,13 +84,13 @@ client.on('messageCreate', async (message) => {
             );
 
             return message.reply({
-                content: `📝 <@${hedefUye.id}> kullanıcısının adı \`${metinKismi}\` olarak ayarlandı. Lütfen vermem gereken rolü aşağıdaki butonlardan seç :`,
+                content: `📝 <@${hedefUye.id}> kullanıcısının adı \`${metinKismi}\` olarak ayarlandı. Lütfen vermem gereken rolü aşağıdaki butonlardan seç kanka:`,
                 components: [row]
             });
         }
 
-        // -kayitsayi veya .kayitsayi Komutu Kontrolü (Görsel 18160_2.jpg tarzı)
-        if (message.content.startsWith('-kayitsayi') || message.content.startsWith('.kayitsayi')) {
+        // -kayitsayi Komutu Kontrolü
+        if (message.content.startsWith('-kayitsayi')) {
             const siraliListe = Object.entries(kayitVerileri)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 10);
@@ -99,14 +99,13 @@ client.on('messageCreate', async (message) => {
 
             let descriptionMetni = 'En çok üye kaydedenler\n\n';
             siraliListe.forEach(([yetkiliId, sayi]) => {
-                // Görseldeki gibi alt satıra geçecek şekilde ayarlandı kanka
                 descriptionMetni += `<@${yetkiliId}>'ın toplam kayıt sayısı:\n${sayi}\n\n`;
             });
 
             const embed = new EmbedBuilder()
                 .setTitle('📊 Kayıt Sıralaması!')
                 .setDescription(descriptionMetni)
-                .setColor(0x2F3136) // Koyu Discord teması rengi
+                .setColor(0x2F3136) 
                 .setThumbnail(message.guild.iconURL({ dynamic: true }))
                 .setFooter({ text: 'Nors Kayıt Sistemi' });
 
@@ -115,7 +114,6 @@ client.on('messageCreate', async (message) => {
 
         // --- 2. GÜVENLİK VE KORUMALAR ---
         if (!yetkiliMi) {
-            // Everyone / Here / Herw Engeli
             if (message.content.includes('@everyone') || message.content.includes('@here') || mesajIcerikKucuk.includes('@herw')) {
                 await message.delete().catch(() => {});
                 await message.member.timeout(5 * 60 * 1000, 'Yetkisiz etiket kullanımı.').catch(() => {});
@@ -123,19 +121,16 @@ client.on('messageCreate', async (message) => {
                 return;
             }
 
-            // Rol Etiket Engeli (Sadece Silme)
             if (message.mentions.roles.size > 0) {
                 await message.delete().catch(() => {});
                 return;
             }
 
-            // Link Engeli (Sadece Silme)
             if (mesajIcerikKucuk.includes('discord.gg/') || mesajIcerikKucuk.includes('discord.com/invite/')) {
                 await message.delete().catch(() => {});
                 return;
             }
 
-            // Küfür Engeli
             if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
                 const kufurVarMi = KUFUR_LISTESI.some(kufur => {
                     const regex = new RegExp(`\\b${kufur}\\b`, 'i');
@@ -174,21 +169,17 @@ client.on('interactionCreate', async (interaction) => {
         let verilecekRolId = '';
         let rolIsmi = '';
 
-        if (secilenRol === 'futbolcu') { verilecekRolId = ROL_FUTBULCU = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
+        if (secilenRol === 'futbolcu') { verilecekRolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
         else if (secilenRol === 'baskan') { verilecekRolId = ROL_BASKAN; rolIsmi = 'Takım Başkanı'; }
         else if (secilenRol === 'td') { verilecekRolId = ROL_TD; rolIsmi = 'Teknik Direktör'; }
         else if (secilenRol === 'uye') { verilecekRolId = ROL_UYE; rolIsmi = 'Üye'; }
 
-        // Rolü ver
         await hedefUye.roles.add(verilecekRolId).catch(() => {});
 
-        // Kayıt sayısını arttır
         kayitVerileri[interaction.user.id] = (kayitVerileri[interaction.user.id] || 0) + 1;
 
-        // Orijinal mesajı sil
         await interaction.message.delete().catch(() => {});
 
-        // Sohbet Kanalına Duyuru Gönder
         const sohbetKanali = guild.channels.cache.get(SOHBET_KANAL_ID) || await guild.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
         if (sohbetKanali) {
             await sohbetKanali.send({ content: `📢 **<@${hedefUye.id}> aramıza katıldı.**` }).catch(() => {});
@@ -212,7 +203,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
-        
+                        
                 
 
           
