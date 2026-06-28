@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+      const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -13,7 +13,7 @@ const client = new Client({
 // SABİT CONFIG VE ID AYARLARI
 // ==========================================
 const KAYIT_YETKILI_ROLLER = ['1520768910947782687']; 
-const TAKIM_OWNER_ROL_ID = '1519414839561158828'; // Verdiğin Takım Kurma Yetkili Rol ID'si
+const TAKIM_OWNER_ROL_ID = '1519414839561158828'; // Takım Owner Rol ID'si
 const OYUNCU_YETKILI_ROLLER = ['1520770167720771644', '1520770097558585344'];
 const DEGER_YETKILI_ROL = '1520768962193915945'; 
 
@@ -27,7 +27,7 @@ const ROL_BASKAN = '1520770097558585344';
 
 // Hafıza Veritabanları
 let oyuncuVerileri = {}; 
-let takimlar = {}; // Silinen Takım Veritabanı Geri Geldi
+let takimlar = {}; 
 let antrenmanCooldown = new Map(); 
 let penaltiCooldown = new Map();   
 
@@ -94,11 +94,11 @@ async function degerIsle(member, miktar, islemTipi) {
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Nors Bot Tüm Komutlar ve Takım Sistemleriyle Hazır Kanka!`);
+    console.log(`⚽ Nors Bot Kırmızı Hatalardan Arındırıldı, Aktif!`);
 });
 
-process.on('unhandledRejection', (reason) => { console.error("🔴 Hata:", reason); });
-process.on('uncaughtException', (err) => { console.error("🔴 Kritik Hata:", err); });
+process.on('unhandledRejection', (reason) => { console.error("🔴 Hata Yakalandı:", reason); });
+process.on('uncaughtException', (err) => { console.error("🔴 Kritik Hata Yakalandı:", err); });
 
 // ==========================================
 // GÜVENLİKLİ GİRİŞ SİSTEMİ
@@ -162,7 +162,7 @@ client.on('messageCreate', async (message) => {
                     `• \`.takimliste\` - Kurulan tüm takımları listeler.\n\n` +
                     `💰 **Ekonomi Komutları (k, m, b geçerli):**\n` +
                     `• \`.bakiye\` veya \`.bal\` - Cüzdan bilgilerinizi gösterir.\n` +
-                    `• \`.send @üye [Miktar]\` - Oyuncuya para transfer eder. (Örn: \`.send @üye 10m\`)\n` +
+                    `• \`.send @üye [Miktar]\` - Oyuncuya para transfer eder.\n` +
                     `• \`.paraver @üye [Miktar]\` - Yetkili oyuncuya para ekler.\n` +
                     `• \`.paracikar @üye [Miktar]\` - Yetkili oyuncudan para siler.\n\n` +
                     `📈 **Değer Yönetim Komutları (k, m, b geçerli):**\n` +
@@ -397,6 +397,6 @@ client.on('interactionCreate', async (interaction) => {
         if (duyuruKanali) {
             let pIsim = hedefUye.displayName;
             const logEmbed = new EmbedBuilder()
-      
+                .setAuthor({ name: 'Kayıt Yapıldı!', iconURL: interaction.gui
 
-                
+            
