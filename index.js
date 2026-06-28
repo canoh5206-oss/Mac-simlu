@@ -1,4 +1,4 @@
-    const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -19,59 +19,100 @@ const DEGER_YETKILI_ROL = '1520768962193915945';
 
 const KAYIT_ODASI_ID = '1520767182563311737'; 
 const KAYIT_DUYURU_KANAL_ID = '1520767204746858567'; 
-const DEGER_BILDIRI_KANAL_ID = '1520767223646519328'; 
+const DEGER_BILDIRI_KANAL_ID = '1520767223646519328'; // Bildirimlerin gideceği kanal ID'si
 
 const ROL_FUTBOLCU = '1520770217041727598';
 const ROL_TD = '1520770167720771644';
 const ROL_BASKAN = '1520770097558585344';
 
 // Hafıza Veritabanları
-let takimlar = {}; 
 let oyuncuVerileri = {}; 
-
 let antrenmanCooldown = new Map(); 
 let penaltiCooldown = new Map();   
 
 const KUFUR_LISTESI = ['amk', 'aq', 'orospu', 'piç', 'sik', 'göt', 'yarrak', '31', 'oe', 'oropusu'];
 
+// 🎯 K, M, B KISALTMALARI SAYIYA ÇEVİREN FONKSİYON
+function miktarCoz(metin) {
+    if (!metin) return NaN;
+    let temizMetin = metin.toLowerCase().trim().replace(/,/g, '').replace('€', '').replace('₺', '');
+    let carpan = 1;
+
+    if (temizMetin.endsWith('k')) {
+        carpan = 1000;
+        temizMetin = temizMetin.slice(0, -1);
+    } else if (temizMetin.endsWith('m')) {
+        carpan = 1000000;
+        temizMetin = temizMetin.slice(0, -1);
+    } else if (temizMetin.endsWith('b')) {
+        carpan = 1000000000;
+        temizMetin = temizMetin.slice(0, -1);
+    }
+
+    let sayi = parseFloat(temizMetin);
+    if (isNaN(sayi)) return NaN;
+    return Math.floor(sayi * carpan);
+}
+
+// SAYIYI TEKRAR HARFLİ FORMATA ÇEVİREN FONKSİYON (Örn: 6000000 -> 6M)
+function miktarFormatla(sayi) {
+    if (sayi >= 1000000000) return (sayi / 1000000000).toFixed(0) + 'M'; // Sen M olarak istiyorsan burayı ayarlayabilirsin
+    if (sayi >= 1000000) return (sayi / 1000000).toFixed(0) + 'M';
+    if (sayi >= 1000) return (sayi / 1000).toFixed(0) + 'K';
+    return sayi.toString();
+}
+
 function veriGarantiEt(id) {
     if (!oyuncuVerileri[id]) {
-        oyuncuVerileri[id] = { ant: 0, deger: "Girilmedi", bakiye: 0 };
+        oyuncuVerileri[id] = { ant: 0, bakiye: 0, banka: 0 };
     }
-    if (oyuncuVerileri[id].bakiye === undefined || oyuncuVerileri[id].bakiye === null) {
-        oyuncuVerileri[id].bakiye = 0;
-    }
-    if (!oyuncuVerileri[id].deger) {
-        oyuncuVerileri[id].deger = "Girilmedi";
-    }
+    if (oyuncuVerileri[id].bakiye === undefined) oyuncuVerileri[id].bakiye = 0;
+    if (oyuncuVerileri[id].banka === undefined) oyuncuVerileri[id].banka = 0;
+}
+
+// 🎯 OTOMATİK İSİM VE DEĞER MOTORU (Osimhen | SNT | 🇵🇹 | 1M formatı için)
+async function degerIsle(member, miktar, islemTipi) {
+    let eskiIsim = member.displayName;
+    let parcalar = eskiIsim.split('|').map(p => p.trim());
+    
+    // İsmin son parçasını (değeri) çekiyoruz
+    let sonDegerMetni = parcalar[parcalar.length - 1];
+    let mevcutDeger = miktarCoz(sonDegerMetni);
+    
+    if (isNaN(mevcutDeger)) mevcutDeger = 0; // Eğer ismin sonunda değer yoksa 0 kabul et
+    
+    let yeniDeger = (islemTipi === 'artir') ? (mevcutDeger + miktar) : (mevcutDeger - miktar);
+    if (yeniDeger < 0) yeniDeger = 0;
+
+    let yeniDegerMetni = miktarFormatla(yeniDeger);
+
+    // İsmin son parçasını yeni değerle değiştirip birleştiriyoruz
+    parcalar[parcalar.length - 1] = yeniDegerMetni;
+    let yeniIsim = parcalar.join(' | ');
+
+    await member.setNickname(yeniIsim).catch(() => {});
+    return { yeniIsim, eskiDeger: miktarFormatla(mevcutDeger), yeniDeger: yeniDegerMetni };
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Tüm izinler açık! Giriş ve Ekonomi sistemi hazır kanka.`);
+    console.log(`⚽ Nors Bot Giriş, Değer ve Ekonomi Sistemleri Tamamen Aktif!`);
 });
 
-// KRİTİK: Botun paneli kırmızıya boyayıp kapanmasını engelleyen küresel yakalayıcılar
-process.on('unhandledRejection', (reason, p) => { 
-    console.error("🔴 [Sistem Hatası Yakalandı]:", reason); 
-});
-process.on('uncaughtException', (err, origin) => { 
-    console.error("🔴 [Kritik Hata Yakalandı]:", err); 
-});
+process.on('unhandledRejection', (reason) => { console.error("🔴 Hata:", reason); });
+process.on('uncaughtException', (err) => { console.error("🔴 Kritik Hata:", err); });
 
 // ==========================================
-// GÜVENLİKLİ GİRİŞ SİSTEMİ (18194.jpg TASARIMI)
+// GÜVENLİKLİ GİRİŞ SİSTEMİ (18194.jpg)
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
     try {
         const kayitKanali = member.guild.channels.cache.get(KAYIT_ODASI_ID);
-        if (!kayitKanali) return console.log("⚠️ Kayıt kanalı sunucuda bulunamadı, ID'yi kontrol et kanka.");
+        if (!kayitKanali) return;
 
         const uyeSayisi = member.guild.memberCount;
         const olusturmaTarihi = member.user.createdAt;
         const hesapYasiGun = Math.floor((new Date() - olusturmaTarihi) / (1000 * 60 * 60 * 24));
-        
-        const guvenilirMi = hesapYasiGun >= 30;
-        const guvenlikDurumu = guvenilirMi ? '🔹 Güvenilir!' : '⚠️ Güvenilir Değil (Şüpheli)!';
+        const guvenlikDurumu = hesapYasiGun >= 30 ? '🔹 Güvenilir!' : '⚠️ Güvenilir Değil (Şüpheli)!';
 
         const girisEmbed = new EmbedBuilder()
             .setAuthor({ name: `Yeni Bir Kullanıcı Katıldı, 👋\n${member.user.username}!`, iconURL: member.guild.iconURL({ dynamic: true }) || client.user.displayAvatarURL() })
@@ -81,24 +122,15 @@ client.on('guildMemberAdd', async (member) => {
             .setFooter({ text: 'Nors', iconURL: client.user.displayAvatarURL() });
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`btn_kayit_baslat_${member.id}`)
-                .setLabel('🪪 Normal Kayıt')
-                .setStyle(ButtonStyle.Primary)
+            new ButtonBuilder().setCustomId(`btn_kayit_baslat_${member.id}`).setLabel('🪪 Normal Kayıt').setStyle(ButtonStyle.Primary)
         );
 
-        await kayitKanali.send({ 
-            content: `📢 <@&1520768910947782687>, <@${member.id}> sunucuya giriş yaptı.`, 
-            embeds: [girisEmbed],
-            components: [row]
-        });
-    } catch (e) { 
-        console.error("🔴 Giriş mesajı gönderilirken hata oluştu:", e.message); 
-    }
+        await kayitKanali.send({ content: `📢 <@&1520768910947782687>, <@${member.id}> sunucuya giriş yaptı.`, embeds: [girisEmbed], components: [row] });
+    } catch (e) { console.error(e); }
 });
 
 // ==========================================
-// MESAJ MERKEZİ (KOMUTLAR VE KORUMALAR)
+// MESAJ MERKEZİ (KOMUTLAR)
 // ==========================================
 client.on('messageCreate', async (message) => {
     try {
@@ -106,44 +138,26 @@ client.on('messageCreate', async (message) => {
 
         const icerik = message.content.trim();
         const icerikKucuk = icerik.toLowerCase();
+        const argumanlar = icerik.split(/\s+/);
 
-        // --- GÜVENLİK KORUMASI ---
+        // --- KÜFÜR KORUMASI ---
         const kufurVarMi = KUFUR_LISTESI.some(kufur => new RegExp(`\\b${kufur}\\b`, 'i').test(icerikKucuk));
         if (kufurVarMi && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             await message.delete().catch(() => {});
-            await message.member.timeout(2 * 60 * 1000, 'Sohbette küfür/argo kullanımı.').catch(() => {});
+            await message.member.timeout(2 * 60 * 1000, 'Küfür kullanımı.').catch(() => {});
             return message.channel.send(`⚠️ <@${message.author.id}> küfür ettiği için **2 dakika** susturuldu kanka.`).catch(() => {});
         }
 
-        // --- .yardim KOMUTU ---
-        if (icerikKucuk === '.yardim') {
-            const embed = new EmbedBuilder()
-                .setTitle('📋 Nors Bot Komut Listesi')
-                .setColor(0x2F3136)
-                .setDescription(
-                    `⚽ **Oyuncu Komutları:**\n• **.profil [@üye]**\n• **.ant**\n• **.pen**\n• **.post [Mesaj]**\n\n` +
-                    `💰 **Ekonomi Komutları:**\n• **.bakiye [@üye]**\n• **.send @üye [Miktar]**\n• **.paraver @üye [Miktar]**\n• **.paracikar @üye [Miktar]**\n\n` +
-                    `📥 **Yönetim & Kayıt:**\n• **-k @üye [İsim]**\n• **.degerver @üye [Miktar]**`
-                );
-            return message.reply({ embeds: [embed] }).catch(() => {});
-        }
-
-        // --- -k SERBEST KAYIT KOMUTU ---
+        // --- -k SERBEST KAYIT ---
         if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) return;
-
-            const yetkiliMi = message.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id));
-            if (!yetkiliMi) return message.reply('❌ Kayıt yetkilisi rolün yok kanka.').catch(() => {});
+            if (!message.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Kayıt yetkilisi rolün yok kanka.');
 
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Üyeyi etiketle kanka! Örn: `-k @üye İsim`').catch(() => {});
+            if (!hedefUye) return message.reply('❌ Üyeyi etiketle kanka! Örn: `-k @üye Osimhen | SNT | 🇵🇹 | 1M`');
 
             const metinKismi = icerik.substring(icerik.indexOf('>') + 1).trim();
-            if (!metinKismi) return message.reply('❌ Sunucu ismini yaz kanka!').catch(() => {});
-
-            const kelimeler = metinKismi.split(' ');
-            veriGarantiEt(hedefUye.id);
-            oyuncuVerileri[hedefUye.id].deger = kelimeler[kelimeler.length - 1];
+            if (!metinKismi) return message.reply('❌ Formatı tam yaz kanka!');
 
             await hedefUye.setNickname(metinKismi).catch(() => {});
 
@@ -153,120 +167,176 @@ client.on('messageCreate', async (message) => {
                 new ButtonBuilder().setCustomId(`k_baskan_${hedefUye.id}`).setLabel('👑 Takım Başkanı').setStyle(ButtonStyle.Success)
             );
 
-            return message.reply({ content: `📝 <@${hedefUye.id}> ismi yazıldı. Rol seç kanka:`, components: [row] }).catch(() => {});
+            return message.reply({ content: `📝 <@${hedefUye.id}> ismi ayarlandı. Rol seç kanka:`, components: [row] });
         }
 
-        // --- ECONOMY KOMUTLARI ---
-        if (icerikKucuk.startsWith('.bakiye')) {
+        // ==========================================
+        // DİNAMİK DEĞER SİSTEMİ KOMUTLARI
+        // ==========================================
+
+        // --- .degerver KOMUTU ---
+        if (icerikKucuk.startsWith('.degerver')) {
+            if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
+
+            const hedefUye = message.mentions.members.first();
+            const miktarStr = argumanlar[2];
+            const miktar = miktarCoz(miktarStr);
+
+            if (!hedefUye || isNaN(miktar)) return message.reply('❌ Yanlış kullanım. Örn: `.degerver @üye 5m`');
+
+            const sonuc = await degerIsle(hedefUye, miktar, 'artir');
+            
+            // Başarı mesajı
+            message.reply(`✅ <@${hedefUye.id}> oyuncusunun değeri artırıldı!\n Yeni İsmi: \`${sonuc.yeniIsim}\``);
+
+            // Değer Bildiri Kanalına Duyuru Gönderme (18195.jpg & 18159.jpg tarzı)
+            const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
+            if (bildiriKanali) {
+                const bEmbed = new EmbedBuilder()
+                    .setAuthor({ name: 'Değer Güncellemesi!', iconURL: message.guild.iconURL({ dynamic: true }) })
+                    .setDescription(`📈 <@${hedefUye.id}> oyuncusunun değeri **${sonuc.eskiDeger}** seviyesinden **${sonuc.yeniDeger}** seviyesine yükseltildi!\n\n**Yetkili:** <@${message.author.id}>`)
+                    .setColor(0x00FF00)
+                    .setTimestamp();
+                bildiriKanali.send({ embeds: [bEmbed] }).catch(() => {});
+            }
+            return;
+        }
+
+        // --- .degercikar KOMUTU ---
+        if (icerikKucuk.startsWith('.degercikar')) {
+            if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
+
+            const hedefUye = message.mentions.members.first();
+            const miktarStr = argumanlar[2];
+            const miktar = miktarCoz(miktarStr);
+
+            if (!hedefUye || isNaN(miktar)) return message.reply('❌ Yanlış kullanım. Örn: `.degercikar @üye 5m`');
+
+            const sonuc = await degerIsle(hedefUye, miktar, 'azalt');
+            
+            message.reply(`📉 <@${hedefUye.id}> oyuncusunun değeri düşürüldü!\n Yeni İsmi: \`${sonuc.yeniIsim}\``);
+
+            // Bildiri Kanalına Gönderme
+            const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
+            if (bildiriKanali) {
+                const bEmbed = new EmbedBuilder()
+                    .setAuthor({ name: 'Değer Güncellemesi!', iconURL: message.guild.iconURL({ dynamic: true }) })
+                    .setDescription(`📉 <@${hedefUye.id}> oyuncusunun değeri **${sonuc.eskiDeger}** seviyesinden **${sonuc.yeniDeger}** seviyesine düşürüldü.\n\n**Yetkili:** <@${message.author.id}>`)
+                    .setColor(0xFF0000)
+                    .setTimestamp();
+                bildiriKanali.send({ embeds: [bEmbed] }).catch(() => {});
+            }
+            return;
+        }
+
+        // ==========================================
+        // KISALTMALI EKONOMİ SİSTEMİ (18195.jpg)
+        // ==========================================
+
+        // --- .bakiye / .bal ---
+        if (icerikKucuk.startsWith('.bakiye') || icerikKucuk.startsWith('.bal')) {
             const hedefUye = message.mentions.members.first() || message.member;
             veriGarantiEt(hedefUye.id);
-            return message.reply(`💰 <@${hedefUye.id}> bakiyesi: **${oyuncuVerileri[hedefUye.id].bakiye.toLocaleString('tr-TR')} ₺**`).catch(() => {});
+
+            const nakit = oyuncuVerileri[hedefUye.id].bakiye;
+            const banka = oyuncuVerileri[hedefUye.id].banka;
+            const toplam = nakit + banka;
+
+            const bakiyeEmbed = new EmbedBuilder()
+                .setAuthor({ name: `${hedefUye.user.username}'ın Cüzdanı`, iconURL: hedefUye.user.displayAvatarURL({ dynamic: true }) })
+                .setTitle('💰 Bakiye Bilgileri')
+                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
+                .setColor(0xFFAA00) 
+                .setDescription(`💵 **Para**\n${nakit.toLocaleString('tr-TR')}€\n\n🏦 **Banka**\n${banka.toLocaleString('tr-TR')}€\n\n💎 **Toplam Servet**\n${toplam.toLocaleString('tr-TR')}€`)
+                .setFooter({ text: 'Son güncelleme • Nors Ekonomi' });
+
+            return message.reply({ embeds: [bakiyeEmbed] });
         }
 
-        if (icerikKucuk.startsWith('.paraver') || icerikKucuk.startsWith('.paraal')) {
-            if (!message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Ekonomi yetkin yok kanka!').catch(() => {});
+        // --- .paraver ---
+        if (icerikKucuk.startsWith('.paraver')) {
+            if (!message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Ekonomi yetkin yok kanka.');
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Örn: `.paraver @üye 10000`').catch(() => {});
-            const arg = icerik.split(' ');
-            const miktar = parseInt(arg[arg.length - 1]);
-            if (isNaN(miktar) || miktar <= 0) return message.reply('❌ Geçersiz miktar.').catch(() => {});
+            const miktar = miktarCoz(argumanlar[2]);
+
+            if (!hedefUye || isNaN(miktar) || miktar <= 0) return message.reply('❌ Örn: `.paraver @üye 100k`');
 
             veriGarantiEt(hedefUye.id);
             oyuncuVerileri[hedefUye.id].bakiye += miktar;
-            return message.reply(`💰 <@${hedefUye.id}> hesabına **${miktar.toLocaleString('tr-TR')} ₺** eklendi.`).catch(() => {});
+            return message.reply(`💰 <@${hedefUye.id}> cüzdanına **${miktar.toLocaleString('tr-TR')} €** eklendi kanka.`);
         }
 
+        // --- .paracikar ---
         if (icerikKucuk.startsWith('.paracikar')) {
-            if (!message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Ekonomi yetkin yok kanka!').catch(() => {});
+            if (!message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Ekonomi yetkin yok kanka.');
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Örn: `.paracikar @üye 5000`').catch(() => {});
-            const arg = icerik.split(' ');
-            const miktar = parseInt(arg[arg.length - 1]);
-            if (isNaN(miktar) || miktar <= 0) return message.reply('❌ Geçersiz miktar.').catch(() => {});
+            const miktar = miktarCoz(argumanlar[2]);
+
+            if (!hedefUye || isNaN(miktar) || miktar <= 0) return message.reply('❌ Örn: `.paracikar @üye 50m`');
 
             veriGarantiEt(hedefUye.id);
             oyuncuVerileri[hedefUye.id].bakiye = Math.max(0, oyuncuVerileri[hedefUye.id].bakiye - miktar);
-            return message.reply(`📉 <@${hedefUye.id}> hesabından **${miktar.toLocaleString('tr-TR')} ₺** düşüldü.`).catch(() => {});
+            return message.reply(`📉 <@${hedefUye.id}> cüzdanından **${miktar.toLocaleString('tr-TR')} €** çıkarıldı.`);
         }
 
+        // --- .send ---
         if (icerikKucuk.startsWith('.send')) {
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye || hedefUye.id === message.author.id) return message.reply('❌ Geçersiz üye.').catch(() => {});
-            const arg = icerik.split(' ');
-            const miktar = parseInt(arg[arg.length - 1]);
-            if (isNaN(miktar) || miktar <= 0) return message.reply('❌ Geçersiz miktar.').catch(() => {});
+            const miktar = miktarCoz(argumanlar[2]);
+
+            if (!hedefUye || hedefUye.id === message.author.id || isNaN(miktar) || miktar <= 0) return message.reply('❌ Örn: `.send @üye 10k`');
 
             veriGarantiEt(message.author.id);
-            if (oyuncuVerileri[message.author.id].bakiye < miktar) return message.reply('❌ Paran yetersiz kanka.').catch(() => {});
+            if (oyuncuVerileri[message.author.id].bakiye < miktar) return message.reply('❌ Paran yetersiz kanka.');
 
             veriGarantiEt(hedefUye.id);
             oyuncuVerileri[message.author.id].bakiye -= miktar;
             oyuncuVerileri[hedefUye.id].bakiye += miktar;
-            return message.reply(`✅ **${miktar.toLocaleString('tr-TR')} ₺** gönderildi!`).catch(() => {});
+            return message.reply(`✅ **${miktar.toLocaleString('tr-TR')} €** başarıyla <@${hedefUye.id}> hesabına aktarıldı.`);
         }
 
-        // --- .ant VE .pen KOMUTLARI ---
+        // --- DİĞER STANDART KOMUTLAR (.ant, .pen) ---
         if (icerikKucuk === '.ant') {
             const id = message.author.id;
-            if (antrenmanCooldown.has(id) && Date.now() - antrenmanCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir antrenman yapabilirsin.').catch(() => {});
+            if (antrenmanCooldown.has(id) && Date.now() - antrenmanCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir antrenman yapabilirsin.');
             veriGarantiEt(id);
+            if (!oyuncuVerileri[id].ant) oyuncuVerileri[id].ant = 0;
             if (oyuncuVerileri[id].ant < 5) oyuncuVerileri[id].ant += 1;
             antrenmanCooldown.set(id, Date.now());
-            return message.reply(`🏃‍♂️ Antrenman yapıldı. Durum: \`${oyuncuVerileri[id].ant}/5\``).catch(() => {});
+            return message.reply(`🏃‍♂️ Antrenman yapıldı. Durum: \`${oyuncuVerileri[id].ant}/5\``);
         }
 
         if (icerikKucuk === '.pen') {
             const id = message.author.id;
-            if (penaltiCooldown.has(id) && Date.now() - penaltiCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir penaltı atabilirsin.').catch(() => {});
+            if (penaltiCooldown.has(id) && Date.now() - penaltiCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir penaltı atabilirsin.');
             penaltiCooldown.set(id, Date.now());
             const res = ['⚽ GOL!', '🧤 KALECİ KURTARDI!', '💥 DİREK!'][Math.floor(Math.random() * 3)];
-            return message.reply(`🥅 Şut çekildi... Sonuç: **${res}**`).catch(() => {});
+            return message.reply(`🥅 Şut çekildi... Sonuç: **${res}**`);
         }
 
-        // --- .profil ---
-        if (icerikKucuk.startsWith('.profil')) {
-            const hedefUye = message.mentions.members.first() || message.member;
-            veriGarantiEt(hedefUye.id);
-            const embed = new EmbedBuilder()
-                .setTitle(`👤 ${hedefUye.user.username} Profili`)
-                .setColor(0x2F3136)
-                .addFields(
-                    { name: '🎽 Antrenman', value: `\`${oyuncuVerileri[hedefUye.id].ant}/5\``, inline: true },
-                    { name: '💰 Değer', value: `\`${oyuncuVerileri[hedefUye.id].deger}\``, inline: true },
-                    { name: '💵 Cüzdan', value: `\`${oyuncuVerileri[hedefUye.id].bakiye.toLocaleString('tr-TR')} ₺\``, inline: false }
-                );
-            return message.reply({ embeds: [embed] }).catch(() => {});
-        }
-
-    } catch (err) { console.error("Mesaj hatası:", err.message); }
+    } catch (err) { console.error(err); }
 });
 
 // ==========================================
-// BUTON ETKİLEŞİM MERKEZİ (ÇÖKMEYE KARŞI KORUMALI)
+// BUTON ETKİLEŞİM MERKEZİ (18159.jpg DUYURU)
 // ==========================================
 client.on('interactionCreate', async (interaction) => {
     try {
         if (!interaction.isButton()) return;
 
-        // --- 1. GÖRSELDEKİ "NORMAL KAYIT" BUTONU ---
         if (interaction.customId.startsWith('btn_kayit_baslat_')) {
-            const yetkiliMi = interaction.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id));
-            if (!yetkiliMi) {
-                return interaction.reply({ content: '❌ Bu butona basmak için Kayıt Yetkilisi olmalısın kanka!', ephemeral: true }).catch(() => {});
+            if (!interaction.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id))) {
+                return interaction.reply({ content: '❌ Kayıt yetkilisi değilsin kanka!', ephemeral: true });
             }
             const hedefUyeId = interaction.customId.replace('btn_kayit_baslat_', '');
-            return interaction.reply({ 
-                content: `🚀 Kayıt tetiklendi! Kanala direkt \`-k <@${hedefUyeId}> İsim Değer\` yazarak kaydı tamamla kanka.`, 
-                ephemeral: true 
-            }).catch(() => {});
+            return interaction.reply({ content: `🚀 Kayıt başlatıldı! Kanala direkt \`-k <@${hedefUyeId}> İsim | Pozisyon | Bayrak | 1M\` formatında yazıp rolleri ver kanka.`, ephemeral: true });
         }
 
-        // --- 2. -k KOMUTU ROL BUTONLARI ---
         const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
         if (prefix !== 'k') return;
 
         const hedefUye = await interaction.guild.members.fetch(deleteId).catch(() => null);
-        if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı sunucudan çıkmış kanka.', ephemeral: true }).catch(() => {});
+        if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı sunucuda yok.', ephemeral: true });
 
         let rolId = ''; let rolIsmi = '';
         if (rolTipi === 'futbolcu') { rolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
@@ -278,18 +348,18 @@ client.on('interactionCreate', async (interaction) => {
 
         const duyuruKanali = interaction.guild.channels.cache.get(KAYIT_DUYURU_KANAL_ID);
         if (duyuruKanali) {
-            const embed = new EmbedBuilder()
-                .setTitle('✨ Kayıt Yapıldı!')
-                .setDescription(`🤝 • <@${hedefUye.id}> aramıza **${rolIsmi}** rolleriyle katıldı.\n\n🌟 • **Yetkili:** <@${interaction.user.id}>\n\n🐼 • **Hoş geldin** <@${hedefUye.id}>`)
-                .setColor(0x2F3136);
-            await duyuruKanali.send({ embeds: [embed] }).catch(() => {});
+            let pIsim = hedefUye.displayName;
+            const logEmbed = new EmbedBuilder()
+                .setAuthor({ name: 'Kayıt Yapıldı!', iconURL: interaction.guild.iconURL({ dynamic: true }) })
+                .setDescription(`🔷 • <@${hedefUye.id}> | **${pIsim}** aramıza **${rolIsmi}** rolleriyle katıldı.\n\n⚫ • **Kaydı gerçekleştiren yetkili:**\n<@${interaction.user.id}>\n\n🐼 • **Aramıza hoş geldin!**`)
+                .setColor(0x1F2225)
+                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }));
+
+            await duyuruKanali.send({ content: `📢 **${pIsim}** aramıza katıldı!`, embeds: [logEmbed] }).catch(() => {});
         }
-        return interaction.reply({ content: `✅ Rol başarıyla verildi kanka.`, ephemeral: true }).catch(() => {});
-    } catch (err) { 
-        console.error("🔴 Buton hatası yakalandı:", err.message); 
-    }
+        return interaction.reply({ content: `✅ İşlem tamamlandı kanka.`, ephemeral: true });
+    } catch (err) { console.error(err); }
 });
 
-// Kendi bot tokenını buraya girmeyi unutma kanka!
 client.login(process.env.TOKEN);
                 
