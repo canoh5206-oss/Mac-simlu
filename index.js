@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -8,33 +8,23 @@ const client = new Client({
     ]
 });
 
-// Bot hazır olduğunda konsola yazdır
 client.once('ready', () => {
-    console.log(`🤖 Kanal kurulum botu aktif kanka! Giriş yapılan hesap: ${client.user.tag}`);
+    console.log(`🤖 Herkese açık kanal kurulum botu aktif kanka! Hesap: ${client.user.tag}`);
 });
 
-// Hata önleyiciler
 process.on('unhandledRejection', (reason, p) => { console.error(reason); });
 process.on('uncaughtException', (err, origin) => { console.error(err); });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // Kurulumu başlatacak komut kanka
+    // Herkesin çalıştırabileceği komut
     if (message.content === '-kur') {
-        // Komutu kullanan kişinin yönetici olup olmadığını kontrol et
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('❌ Kanka bu komutu kullanmak için `Yönetici` yetkin olması gerekiyor!');
-        }
-
         const bildiriMesaji = await message.reply('⏳ **Karagör Sunucu Yapısı Kuruluyor...** Lütfen kanallar oluşturulurken bekleyin kanka.');
 
         try {
             const guild = message.guild;
 
-            // ------------------------------------------------------------
-            // YARDIMCI FONKSİYON: Kategori ve alt kanallarını hızlıca açar
-            // ------------------------------------------------------------
             async function kategoriVeKanallariOlustur(kategoriAdi, kanallar) {
                 const kategori = await guild.channels.create({
                     name: kategoriAdi,
@@ -182,16 +172,17 @@ client.on('messageCreate', async (message) => {
                 { name: '📋・kap-bilgi', type: ChannelType.GuildText }
             ]);
 
-            await bildiriMesaji.edit('✅ **Başarılı!** İstediğin tüm Karagör kategorileri ve kanalları eksiksiz olarak kuruldu kanka!');
+            await bildiriMesaji.edit('✅ **Başarılı!** İstediğin tüm Karagör kategorileri ve kanalları yetkisiz, herkese açık şekilde kuruldu kanka!');
 
         } catch (error) {
             console.error(error);
-            await bildiriMesaji.edit('❌ Kanal düzeni kurulurken bir hata oluştu kanka. Botun yetkilerini kontrol et!');
+            await bildiriMesaji.edit('❌ Kanal düzeni kurulurken bir hata oluştu kanka. Botun sunucuda Rol yetkisi üstte mi kontrol et!');
         }
     }
 });
 
 client.login(process.env.TOKEN);
+
                  
                         
                 
