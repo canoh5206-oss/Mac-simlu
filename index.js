@@ -68,7 +68,7 @@ client.on('messageCreate', async (message) => {
             if (!kayitYetkilisiMi) return message.reply('❌ Kanka bu komutu kullanmak için <@&1512316879551860796> rolüne sahip olman gerekiyor!');
 
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `!k @üye İsim | Mevki | Bayrak | Değer`');
+            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `-k @üye İsim | Mevki | Bayrak | Değer`');
 
             const metinKismi = message.content.substring(message.content.indexOf('>') + 1).trim();
             if (!metinKismi.includes('|')) return message.reply('❌ Lütfen formatı doğru gir kanka! Örn: `İsim | Mevki | Bayrak | Değer`');
@@ -84,13 +84,13 @@ client.on('messageCreate', async (message) => {
             );
 
             return message.reply({
-                content: `📝 <@${hedefUye.id}> kullanıcısının adı \`${metinKismi}\` olarak ayarlandı. Lütfen vermem gereken rolü aşağıdaki butonlardan seç kanka:`,
+                content: `📝 <@${hedefUye.id}> kullanıcısının adı \`${metinKismi}\` olarak ayarlandı. Lütfen vermem gereken rolü aşağıdaki butonlardan seç :`,
                 components: [row]
             });
         }
 
-        // !kayitsayi veya .kayitsayi Komutu Kontrolü (Görsel 18160_2.jpg tarzı)
-        if (message.content.startsWith('!kayitsayi') || message.content.startsWith('.kayitsayi')) {
+        // -kayitsayi veya .kayitsayi Komutu Kontrolü (Görsel 18160_2.jpg tarzı)
+        if (message.content.startsWith('-kayitsayi') || message.content.startsWith('.kayitsayi')) {
             const siraliListe = Object.entries(kayitVerileri)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 10);
