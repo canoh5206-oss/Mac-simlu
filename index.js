@@ -1,4 +1,4 @@
-      const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -13,7 +13,7 @@ const client = new Client({
 // SABİT CONFIG VE ID AYARLARI
 // ==========================================
 const KAYIT_YETKILI_ROLLER = ['1520768910947782687']; 
-const TAKIM_OWNER_ROL_ID = '1519414839561158828'; // Takım Owner Rol ID'si
+const TAKIM_OWNER_ROL_ID = '1519414839561158828'; 
 const OYUNCU_YETKILI_ROLLER = ['1520770167720771644', '1520770097558585344'];
 const DEGER_YETKILI_ROL = '1520768962193915945'; 
 
@@ -35,7 +35,7 @@ const KUFUR_LISTESI = ['amk', 'aq', 'orospu', 'piç', 'sik', 'göt', 'yarrak', '
 
 // 🎯 K, M, B KISALTMALARI SAYIYA ÇEVİREN FONKSİYON
 function miktarCoz(metin) {
-    if (!metin) return NaN;
+    if (!metin || typeof metin !== 'string') return NaN;
     let temizMetin = metin.toLowerCase().trim().replace(/,/g, '').replace('€', '').replace('₺', '');
     let carpan = 1;
 
@@ -57,6 +57,7 @@ function miktarCoz(metin) {
 
 // SAYIYI TEKRAR HARFLİ FORMATA ÇEVİREN FONKSİYON
 function miktarFormatla(sayi) {
+    if (isNaN(sayi) || sayi < 0) return '0M';
     if (sayi >= 1000000000) return (sayi / 1000000000).toFixed(0) + 'B'; 
     if (sayi >= 1000000) return (sayi / 1000000).toFixed(0) + 'M';
     if (sayi >= 1000) return (sayi / 1000).toFixed(0) + 'K';
@@ -73,7 +74,7 @@ function veriGarantiEt(id) {
 
 // 🎯 OTOMATİK İSİM VE DEĞER MOTORU
 async function degerIsle(member, miktar, islemTipi) {
-    let eskiIsim = member.displayName;
+    let eskiIsim = member.displayName || member.user.username;
     let parcalar = eskiIsim.split('|').map(p => p.trim());
     
     let sonDegerMetni = parcalar[parcalar.length - 1];
@@ -94,10 +95,11 @@ async function degerIsle(member, miktar, islemTipi) {
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Nors Bot Kırmızı Hatalardan Arındırıldı, Aktif!`);
+    console.log(`⚽ Nors Bot Hata Korumaları Artırılarak Başlatıldı!`);
 });
 
-process.on('unhandledRejection', (reason) => { console.error("🔴 Hata Yakalandı:", reason); });
+// Panel çökmesin diye tüm hataları burası yakalar
+process.on('unhandledRejection', (reason) => { console.error("🔴 Yakalanan Hata:", reason); });
 process.on('uncaughtException', (err) => { console.error("🔴 Kritik Hata Yakalandı:", err); });
 
 // ==========================================
@@ -180,9 +182,9 @@ client.on('messageCreate', async (message) => {
             if (!message.member.roles.cache.has(TAKIM_OWNER_ROL_ID)) return message.reply('❌ Bu komutu sadece Takım Owner rolüne sahip yetkililer kullanabilir kanka!');
 
             const baskan = message.mentions.members.first();
-            const takimAdi = message.content.split(' ').slice(2).join(' ');
-
-            if (!baskan || !takimAdi) return message.reply('❌ Yanlış kullanım kanka! Örn: `.takimkur @baskan Bursaspor`');
+            if (!baskan || argumanlar.length < 3) return message.reply('❌ Yanlış kullanım kanka! Örn: `.takimkur @baskan Bursaspor`');
+            
+            const takimAdi = argumanlar.slice(2).join(' ');
 
             takimlar[takimAdi.toLowerCase()] = {
                 isim: takimAdi,
@@ -201,7 +203,7 @@ client.on('messageCreate', async (message) => {
             const listeEmbed = new EmbedBuilder()
                 .setTitle('🛡️ Sunucu Takım Listesi')
                 .setColor(0x2F3136)
-                .setThumbnail(message.guild.iconURL({ dynamic: true }))
+                .setThumbnail(message.guild.iconURL({ dynamic: true }) || client.user.displayAvatarURL())
                 .setDescription(takimListesi.map((t, index) => `${index + 1}. ⚽ **${t.isim}** - Başkan: <@${t.baskanId}>`).join('\n'))
                 .setFooter({ text: 'Nors Lig Yönetimi' });
 
@@ -235,10 +237,12 @@ client.on('messageCreate', async (message) => {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
 
             const hedefUye = message.mentions.members.first();
+            if (!hedefUye || argumanlar.length < 3) return message.reply('❌ Yanlış kullanım. Örn: `.degerver @üye 5m`');
+            
             const miktarStr = argumanlar[2];
             const miktar = miktarCoz(miktarStr);
 
-            if (!hedefUye || isNaN(miktar)) return message.reply('❌ Yanlış kullanım. Örn: `.degerver @üye 5m`');
+            if (isNaN(miktar)) return message.reply('❌ Lütfen geçerli bir miktar gir kanka! Örn: `5m`');
 
             const sonuc = await degerIsle(hedefUye, miktar, 'artir');
             message.reply(`✅ <@${hedefUye.id}> oyuncusunun değeri artırıldı!\n Yeni İsmi: \`${sonuc.yeniIsim}\``);
@@ -246,7 +250,7 @@ client.on('messageCreate', async (message) => {
             const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
             if (bildiriKanali) {
                 const bEmbed = new EmbedBuilder()
-                    .setAuthor({ name: 'Değer Güncellemesi!', iconURL: message.guild.iconURL({ dynamic: true }) })
+                    .setAuthor({ name: 'Değer Güncellemesi!', iconURL: message.guild.iconURL({ dynamic: true }) || client.user.displayAvatarURL() })
                     .setDescription(`📈 <@${hedefUye.id}> oyuncusunun değeri **${sonuc.eskiDeger}** seviyesinden **${sonuc.yeniDeger}** seviyesine yükseltildi!\n\n**Yetkili:** <@${message.author.id}>`)
                     .setColor(0x00FF00)
                     .setTimestamp();
@@ -260,10 +264,12 @@ client.on('messageCreate', async (message) => {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
 
             const hedefUye = message.mentions.members.first();
+            if (!hedefUye || argumanlar.length < 3) return message.reply('❌ Yanlış kullanım. Örn: `.degercikar @üye 5m`');
+            
             const miktarStr = argumanlar[2];
             const miktar = miktarCoz(miktarStr);
 
-            if (!hedefUye || isNaN(miktar)) return message.reply('❌ Yanlış kullanım. Örn: `.degercikar @üye 5m`');
+            if (isNaN(miktar)) return message.reply('❌ Lütfen geçerli bir miktar gir kanka! Örn: `2m`');
 
             const sonuc = await degerIsle(hedefUye, miktar, 'azalt');
             message.reply(`📉 <@${hedefUye.id}> oyuncusunun değeri düşürüldü!\n Yeni İsmi: \`${sonuc.yeniIsim}\``);
@@ -271,7 +277,7 @@ client.on('messageCreate', async (message) => {
             const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
             if (bildiriKanali) {
                 const bEmbed = new EmbedBuilder()
-                    .setAuthor({ name: 'Değer Güncellemesi!', iconURL: message.guild.iconURL({ dynamic: true }) })
+                    .setAuthor({ name: 'Değer Güncellemesi!', iconURL: message.guild.iconURL({ dynamic: true }) || client.user.displayAvatarURL() })
                     .setDescription(`📉 <@${hedefUye.id}> oyuncusunun değeri **${sonuc.eskiDeger}** seviyesinden **${sonuc.yeniDeger}** seviyesine düşürüldü.\n\n**Yetkili:** <@${message.author.id}>`)
                     .setColor(0xFF0000)
                     .setTimestamp();
@@ -290,9 +296,9 @@ client.on('messageCreate', async (message) => {
             const toplam = nakit + banka;
 
             const bakiyeEmbed = new EmbedBuilder()
-                .setAuthor({ name: `${hedefUye.user.username}'ın Cüzdanı`, iconURL: hedefUye.user.displayAvatarURL({ dynamic: true }) })
+                .setAuthor({ name: `${hedefUye.user.username}'ın Cüzdanı`, iconURL: hedefUye.user.displayAvatarURL({ dynamic: true }) || client.user.displayAvatarURL() })
                 .setTitle('💰 Bakiye Bilgileri')
-                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
+                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }) || client.user.displayAvatarURL())
                 .setColor(0xFFAA00) 
                 .setDescription(`💵 **Para**\n${nakit.toLocaleString('tr-TR')}€\n\n🏦 **Banka**\n${banka.toLocaleString('tr-TR')}€\n\n💎 **Toplam Servet**\n${toplam.toLocaleString('tr-TR')}€`)
                 .setFooter({ text: 'Son güncelleme • Nors Ekonomi' });
@@ -304,9 +310,10 @@ client.on('messageCreate', async (message) => {
         if (icerikKucuk.startsWith('.paraver')) {
             if (!message.member.roles.cache.has(TAKIM_OWNER_ROL_ID)) return message.reply('❌ Ekonomi yetkin yok kanka.');
             const hedefUye = message.mentions.members.first();
+            if (!hedefUye || argumanlar.length < 3) return message.reply('❌ Örn: `.paraver @üye 100k`');
+            
             const miktar = miktarCoz(argumanlar[2]);
-
-            if (!hedefUye || isNaN(miktar) || miktar <= 0) return message.reply('❌ Örn: `.paraver @üye 100k`');
+            if (isNaN(miktar) || miktar <= 0) return message.reply('❌ Geçersiz para miktarı kanka.');
 
             veriGarantiEt(hedefUye.id);
             oyuncuVerileri[hedefUye.id].bakiye += miktar;
@@ -317,9 +324,10 @@ client.on('messageCreate', async (message) => {
         if (icerikKucuk.startsWith('.paracikar')) {
             if (!message.member.roles.cache.has(TAKIM_OWNER_ROL_ID)) return message.reply('❌ Ekonomi yetkin yok kanka.');
             const hedefUye = message.mentions.members.first();
+            if (!hedefUye || argumanlar.length < 3) return message.reply('❌ Örn: `.paracikar @üye 50m`');
+            
             const miktar = miktarCoz(argumanlar[2]);
-
-            if (!hedefUye || isNaN(miktar) || miktar <= 0) return message.reply('❌ Örn: `.paracikar @üye 50m`');
+            if (isNaN(miktar) || miktar <= 0) return message.reply('❌ Geçersiz para miktarı kanka.');
 
             veriGarantiEt(hedefUye.id);
             oyuncuVerileri[hedefUye.id].bakiye = Math.max(0, oyuncuVerileri[hedefUye.id].bakiye - miktar);
@@ -329,9 +337,10 @@ client.on('messageCreate', async (message) => {
         // --- .send ---
         if (icerikKucuk.startsWith('.send')) {
             const hedefUye = message.mentions.members.first();
+            if (!hedefUye || argumanlar.length < 3) return message.reply('❌ Örn: `.send @üye 10k`');
+            
             const miktar = miktarCoz(argumanlar[2]);
-
-            if (!hedefUye || hedefUye.id === message.author.id || isNaN(miktar) || miktar <= 0) return message.reply('❌ Örn: `.send @üye 10k`');
+            if (hedefUye.id === message.author.id || isNaN(miktar) || miktar <= 0) return message.reply('❌ Geçersiz işlem kanka.');
 
             veriGarantiEt(message.author.id);
             if (oyuncuVerileri[message.author.id].bakiye < miktar) return message.reply('❌ Paran yetersiz kanka.');
@@ -361,7 +370,7 @@ client.on('messageCreate', async (message) => {
             return message.reply(`🥅 Şut çekildi... Sonuç: **${res}**`);
         }
 
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Mesaj Hatası Gerilemesi:", err); }
 });
 
 // ==========================================
@@ -382,21 +391,4 @@ client.on('interactionCreate', async (interaction) => {
         const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
         if (prefix !== 'k') return;
 
-        const hedefUye = await interaction.guild.members.fetch(deleteId).catch(() => null);
-        if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı sunucuda yok.', ephemeral: true });
-
-        let rolId = ''; let rolIsmi = '';
-        if (rolTipi === 'futbolcu') { rolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
-        else if (rolTipi === 'td') { rolId = ROL_TD; rolIsmi = 'Teknik Direktör'; }
-        else if (rolTipi === 'baskan') { rolId = ROL_BASKAN; rolIsmi = 'Takım Başkanı'; }
-
-        await hedefUye.roles.add(rolId).catch(() => {});
-        await interaction.message.delete().catch(() => {});
-
-        const duyuruKanali = interaction.guild.channels.cache.get(KAYIT_DUYURU_KANAL_ID);
-        if (duyuruKanali) {
-            let pIsim = hedefUye.displayName;
-            const logEmbed = new EmbedBuilder()
-                .setAuthor({ name: 'Kayıt Yapıldı!', iconURL: interaction.gui
-
-            
+        
