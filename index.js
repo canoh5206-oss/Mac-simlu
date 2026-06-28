@@ -96,7 +96,32 @@ client.on('messageCreate', async (message) => {
             return message.channel.send(`⚠️ <@${message.author.id}> küfür ettiği için **2 dakika** susturuldu kanka.`);
         }
 
-        // --- 1. -k VEYA -kayit KOMUTLARI ---
+        // --- 1. .yardim KOMUTU (EN BAŞA ALINDI) ---
+        if (icerikKucuk === '.yardim') {
+            const embed = new EmbedBuilder()
+                .setTitle('📋 Nors Bot Komut Listesi')
+                .setColor(0x2F3136)
+                .setThumbnail(client.user.displayAvatarURL())
+                .setDescription(
+                    `⚽ **Oyuncu Komutları:**\n` +
+                    `• **.profil [@üye]** - Antrenman, penaltı ve güncel piyasa değerini gösterir.\n` +
+                    `• **.ant** - Saatlik sıralı antrenman yapar (\`1/5\`, \`2/5\`...).\n` +
+                    `• **.pen** - Saatlik penaltı atışı yapar.\n` +
+                    `• **.post [Mesaj]** - Bot ile şık bir medya postu paylaşır.\n\n` +
+                    `💰 **Yetkili Değer Komutları:**\n` +
+                    `• **.degerver @üye [Miktar]** - Oyuncuya piyasa değeri verir.\n` +
+                    `• **.degercikar @üye [Miktar]** - Değeri düşürür/düzeltir.\n\n` +
+                    `📥 **Yönetim & Kayıt:**\n` +
+                    `• **-k @üye [İsim | Mevki | Değer]** - Kayıt başlatır.\n` +
+                    `• **.takimkur [İsim]** - Yeni takım açar.\n` +
+                    `• **.takimliste** - Kurulan takımları gösterir.\n` +
+                    `• **.oyuncuekle @üye [Takım]** / **.oyuncucikar @üye [Takım]**`
+                )
+                .setFooter({ text: 'Nors Altyapı Sistemi' });
+            return message.reply({ embeds: [embed] });
+        }
+
+        // --- 2. -k VEYA -kayit KOMUTLARI ---
         if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) {
                 const hataEmbed = new EmbedBuilder()
@@ -134,7 +159,7 @@ client.on('messageCreate', async (message) => {
             });
         }
 
-        // --- 2. .ant KOMUTU (SIRALI 1/5, 2/5 DÜZENİ) ---
+        // --- 3. .ant KOMUTU ---
         if (icerikKucuk === '.ant') {
             const id = message.author.id;
             if (antrenmanCooldown.has(id) && Date.now() - antrenmanCooldown.get(id) < 3600000) {
@@ -158,7 +183,7 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [embed] });
         }
 
-        // --- 3. .pen KOMUTU (1 SAAT COOLDOWN) ---
+        // --- 4. .pen KOMUTU ---
         if (icerikKucuk === '.pen') {
             const id = message.author.id;
             if (penaltiCooldown.has(id) && Date.now() - penaltiCooldown.get(id) < 3600000) {
@@ -179,7 +204,7 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [embed] });
         }
 
-        // --- 4. .degerver KOMUTU ---
+        // --- 5. .degerver KOMUTU ---
         if (icerikKucuk.startsWith('.degerver')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) {
                 return message.reply('❌ Kanka bu komutu kullanmaya yetkin yok!');
@@ -218,7 +243,7 @@ client.on('messageCreate', async (message) => {
             return message.reply(`✅ Değer güncellendi ve bildirisi geçildi!`);
         }
 
-        // --- 5. .degercikar KOMUTU ---
+        // --- 6. .degercikar KOMUTU ---
         if (icerikKucuk.startsWith('.degercikar')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) {
                 return message.reply('❌ Kanka bu komutu kullanmaya yetkin yok!');
@@ -254,7 +279,7 @@ client.on('messageCreate', async (message) => {
             return message.reply(`⚠️ Değer **${dusenDeger}** seviyesine indirildi.`);
         }
 
-        // --- 6. .profil KOMUTU ---
+        // --- 7. .profil KOMUTU ---
         if (icerikKucuk.startsWith('.profil')) {
             const hedefUye = message.mentions.members.first() || message.member;
             veriGarantiEt(hedefUye.id);
@@ -282,7 +307,7 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [profilEmbed] });
         }
 
-        // --- 7. DİĞER KOMUTLAR (.takimkur, .takimliste, .oyuncuekle, .oyuncucikar, .post) ---
+        // --- 8. TAKIM VE POST KOMUTLARI ---
         if (icerikKucuk.startsWith('.takimkur')) {
             const yetkiliMi = message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id));
             if (!yetkiliMi) return message.reply('❌ Yetkiniz yok.');
@@ -368,5 +393,3 @@ client.on('interactionCreate', async (interaction) => {
 
 client.login(process.env.TOKEN);
                 
-            
-                    
