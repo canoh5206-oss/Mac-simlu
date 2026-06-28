@@ -1,11 +1,8 @@
 {
-  "name": "reality-league-bot",
+  "name": "nors-bot",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
-    "discord.js": "^14.15.0"
-  },
-  "scripts": {
-    "start": "node index.js"
+    "discord.js": "^14.15.3"
   }
 }
