@@ -1,208 +1,198 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.MessageContent
     ]
 });
 
-// Sabit IDs
-const OWNER_ROL_ID = '1513269024866304091'; // Muaf 1. Rol (Owner)
-const MUAF_ROL_ID = '1513269573451911259';  // Muaf 2. Rol
-const KAYIT_YETKILI_ROL_ID = '1512316879551860796'; // Sadece bu rol kayıt yapabilir!
-const KAYIT_ODASI_ID = '1512128053810303116'; // Sadece burada kayıt yapılacak!
-const SOHBET_KANAL_ID = '1513271753491616064'; // Kayıt duyuru ve küfür uyarısı kanalı
-
-// Kayıt Rol IDs
-const ROL_FUTBOLCU = '1512130383070892094';
-const ROL_BASKAN = '1512323399467139213';
-const ROL_TD = '1513270136176381953';
-const ROL_UYE = '1518721617612640346';
-
-// Hafızada Kayıt Verilerini Tutma
-let kayitVerileri = {}; 
-
-// Engellenen kelimelerin tam listesi
-const KUFUR_LISTESI = [
-    'amk', 'aq', 'orospu', 'piç', 'sik', 'göt', 'yarrak',
-    'prono', 'prona', 'prana', '31', '67', 'anani', 
-    'oe', 'œ', 'oropusu', 'orobusu', 'oropusu çocugu'
-];
-
+// Bot hazır olduğunda konsola yazdır
 client.once('ready', () => {
-    console.log(`🛡️ Sistem Aktif (-k Komut Düzeni Aktif) kanka: ${client.user.tag}`);
+    console.log(`🤖 Kanal kurulum botu aktif kanka! Giriş yapılan hesap: ${client.user.tag}`);
 });
 
-// Çökme Önleyiciler
+// Hata önleyiciler
 process.on('unhandledRejection', (reason, p) => { console.error(reason); });
 process.on('uncaughtException', (err, origin) => { console.error(err); });
 
-// ==========================================
-// MESAJ İŞLEMLERİ (KORUMA VE KOMUTLAR)
-// ==========================================
 client.on('messageCreate', async (message) => {
-    try {
-        if (message.author.bot || !message.guild) return;
+    if (message.author.bot || !message.guild) return;
 
-        const mesajIcerikKucuk = message.content.toLowerCase().toLocaleLowerCase('tr-TR');
-        const yetkiliMi = message.member.roles.cache.has(OWNER_ROL_ID) || message.member.roles.cache.has(MUAF_ROL_ID);
-        const kayitYetkilisiMi = message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID);
-
-        // --- 1. KAYIT KOMUTLARI ---
-        
-        // -k Komutu Kontrolü
-        if (message.content.startsWith('-k')) {
-            // Kayıt odası dışındaysa hata mesajı gönder
-            if (message.channel.id !== KAYIT_ODASI_ID) {
-                const hataEmbed = new EmbedBuilder()
-                    .setTitle('❌ HATA!')
-                    .setDescription(`Komut, bu kanalda kullanılmaz. Lütfen seçili olan <#${KAYIT_ODASI_ID}> kanalında kullanın.`)
-                    .setColor(0xFF0000) 
-                    .setFooter({ text: `Nors | bugün saat ${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}` });
-                
-                return message.reply({ embeds: [hataEmbed] });
-            }
-
-            // Yetki kontrolü
-            if (!kayitYetkilisiMi) return message.reply('❌ Kanka bu komutu kullanmak için <@&1512316879551860796> rolüne sahip olman gerekiyor!');
-
-            const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Kayıt edilecek üyeyi etiketle kanka! Örn: `-k @üye İsim | Mevki | Bayrak | Değer`');
-
-            const metinKismi = message.content.substring(message.content.indexOf('>') + 1).trim();
-            if (!metinKismi.includes('|')) return message.reply('❌ Lütfen formatı doğru gir kanka! Örn: `İsim | Mevki | Bayrak | Değer`');
-
-            // İsmini düzenle
-            await hedefUye.setNickname(metinKismi).catch(() => {});
-
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`kayit_futbolcu_${hedefUye.id}`).setLabel('⚽ Futbolcu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`kayit_baskan_${hedefUye.id}`).setLabel('👑 Takım Başkanı').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`kayit_td_${hedefUye.id}`).setLabel('📋 Teknik Direktör').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId(`kayit_uye_${hedefUye.id}`).setLabel('👤 Üye').setStyle(ButtonStyle.Secondary)
-            );
-
-            return message.reply({
-                content: `📝 <@${hedefUye.id}> kullanıcısının adı \`${metinKismi}\` olarak ayarlandı. Lütfen vermem gereken rolü aşağıdaki butonlardan seç kanka:`,
-                components: [row]
-            });
+    // Kurulumu başlatacak komut kanka
+    if (message.content === '-kur') {
+        // Komutu kullanan kişinin yönetici olup olmadığını kontrol et
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return message.reply('❌ Kanka bu komutu kullanmak için `Yönetici` yetkin olması gerekiyor!');
         }
 
-        // -kayitsayi Komutu Kontrolü
-        if (message.content.startsWith('-kayitsayi')) {
-            const siraliListe = Object.entries(kayitVerileri)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10);
+        const bildiriMesaji = await message.reply('⏳ **Karagör Sunucu Yapısı Kuruluyor...** Lütfen kanallar oluşturulurken bekleyin kanka.');
 
-            if (siraliListe.length === 0) return message.reply('📭 Henüz hiç kayıt yapılmamış kanka.');
+        try {
+            const guild = message.guild;
 
-            let descriptionMetni = 'En çok üye kaydedenler\n\n';
-            siraliListe.forEach(([yetkiliId, sayi]) => {
-                descriptionMetni += `<@${yetkiliId}>'ın toplam kayıt sayısı:\n${sayi}\n\n`;
-            });
-
-            const embed = new EmbedBuilder()
-                .setTitle('📊 Kayıt Sıralaması!')
-                .setDescription(descriptionMetni)
-                .setColor(0x2F3136) 
-                .setThumbnail(message.guild.iconURL({ dynamic: true }))
-                .setFooter({ text: 'Nors Kayıt Sistemi' });
-
-            return message.reply({ embeds: [embed] });
-        }
-
-        // --- 2. GÜVENLİK VE KORUMALAR ---
-        if (!yetkiliMi) {
-            if (message.content.includes('@everyone') || message.content.includes('@here') || mesajIcerikKucuk.includes('@herw')) {
-                await message.delete().catch(() => {});
-                await message.member.timeout(5 * 60 * 1000, 'Yetkisiz etiket kullanımı.').catch(() => {});
-                await message.author.send({ content: `⚠️ Sunucuda yetkiniz olmadan etiket kullanmaya çalıştığınız için **5 dakika** susturuldunuz.` }).catch(() => {});
-                return;
-            }
-
-            if (message.mentions.roles.size > 0) {
-                await message.delete().catch(() => {});
-                return;
-            }
-
-            if (mesajIcerikKucuk.includes('discord.gg/') || mesajIcerikKucuk.includes('discord.com/invite/')) {
-                await message.delete().catch(() => {});
-                return;
-            }
-
-            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                const kufurVarMi = KUFUR_LISTESI.some(kufur => {
-                    const regex = new RegExp(`\\b${kufur}\\b`, 'i');
-                    return regex.test(mesajIcerikKucuk);
+            // ------------------------------------------------------------
+            // YARDIMCI FONKSİYON: Kategori ve alt kanallarını hızlıca açar
+            // ------------------------------------------------------------
+            async function kategoriVeKanallariOlustur(kategoriAdi, kanallar) {
+                const kategori = await guild.channels.create({
+                    name: kategoriAdi,
+                    type: ChannelType.GuildCategory
                 });
 
-                if (kufurVarMi) {
-                    await message.delete().catch(() => {});
-                    await message.member.timeout(5 * 60 * 1000, 'Sohbette küfür kullanımı.').catch(() => {});
-
-                    const sohbetKanali = client.channels.cache.get(SOHBET_KANAL_ID) || await client.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
-                    if (sohbetKanali) {
-                        await sohbetKanali.send({ content: `⚠️ <@${message.author.id}> küfür ettiği için **5 dakika** süreyle susturuldu (mute atıldı).` }).catch(() => {});
-                    }
-                    return;
+                for (const kanal of kanallar) {
+                    await guild.channels.create({
+                        name: kanal.name,
+                        type: kanal.type,
+                        parent: kategori.id
+                    });
                 }
             }
+
+            // 1. Yetkili kanali (karagore)
+            await kategoriVeKanallariOlustur('Yetkili kanali (karagore)', [
+                { name: '・Sohbet', type: ChannelType.GuildText },
+                { name: '・Duyuru', type: ChannelType.GuildText },
+                { name: '・Bot komut', type: ChannelType.GuildText },
+                { name: '・Toplanti ses', type: ChannelType.GuildVoice },
+                { name: '・Toplanti saati', type: ChannelType.GuildText }
+            ]);
+
+            // 2. Reality League (karagore)
+            await kategoriVeKanallariOlustur('Reality League (karagore)', [
+                { name: '🎪・takımlar', type: ChannelType.GuildText },
+                { name: '・Kayıt odasi', type: ChannelType.GuildText },
+                { name: '・Rol-al', type: ChannelType.GuildText }
+            ]);
+
+            // 3. Bilgilendirme (karagore)
+            await kategoriVeKanallariOlustur('Bilgilendirme (karagore)', [
+                { name: '📣・duyuru', type: ChannelType.GuildText },
+                { name: '📦・sistemler', type: ChannelType.GuildText },
+                { name: '📚・kurallar', type: ChannelType.GuildText },
+                { name: '💎・anılar', type: ChannelType.GuildText },
+                { name: '🎭・rol-bilgi', type: ChannelType.GuildText },
+                { name: '🔮・rol-alma', type: ChannelType.GuildText },
+                { name: '🚀・booster', type: ChannelType.GuildText },
+                { name: '📈・seviye', type: ChannelType.GuildText },
+                { name: '✨・yetkili-alım', type: ChannelType.GuildText },
+                { name: '✨・spiker-alım', type: ChannelType.GuildText },
+                { name: '🎙️・spiker-sonuçları', type: ChannelType.GuildText }
+            ]);
+
+            // 4. Diğer Kanallar (karagore)
+            await kategoriVeKanallariOlustur('Diğer Kanallar (karagore)', [
+                { name: '🔔・güncelleme', type: ChannelType.GuildText },
+                { name: '🚀・booster-bilgi', type: ChannelType.GuildText },
+                { name: '🛒・Market', type: ChannelType.GuildText },
+                { name: '🗳️・oy ver', type: ChannelType.GuildText },
+                { name: '🎫・Ticket', type: ChannelType.GuildText }
+            ]);
+
+            // 5. Genel
+            await kategoriVeKanallariOlustur('Genel', [
+                { name: '・Sohnet', type: ChannelType.GuildText },
+                { name: '・Medya', type: ChannelType.GuildText },
+                { name: '🤖・medya', type: ChannelType.GuildText },
+                { name: '💡・istek-şikayet', type: ChannelType.GuildText }
+            ]);
+
+            // 6. Eğlence Kanalları (karagore)
+            await kategoriVeKanallariOlustur('Eğlence Kanalları (karagore)', [
+                { name: '💵・owo', type: ChannelType.GuildText },
+                { name: '🏆・turnuva', type: ChannelType.GuildText },
+                { name: '💫・bil-kazan', type: ChannelType.GuildText }
+            ]);
+
+            // 7. Antrenman (karagore)
+            await kategoriVeKanallariOlustur('Antrenman (karagore)', [
+                { name: '🎽・antrenman', type: ChannelType.GuildText },
+                { name: '🥅・penaltı-antrenman', type: ChannelType.GuildText },
+                { name: '🎽・antrenman-bilgi', type: ChannelType.GuildText }
+            ]);
+
+            // 8. Değer İsteme & Bütçe İsteme (karagore)
+            await kategoriVeKanallariOlustur('Değer İsteme & Bütçe İsteme (karagore)', [
+                { name: '📊・değer-bütçe-kasma', type: ChannelType.GuildText },
+                { name: '💸・değer-bütçe-isteme', type: ChannelType.GuildText },
+                { name: '🔍・değer-bütçe-bildiri', type: ChannelType.GuildText }
+            ]);
+
+            // 9. Sosyal Medya (karagore)
+            await kategoriVeKanallariOlustur('Sosyal Medya (karagore)', [
+                { name: '🌐・twitter', type: ChannelType.GuildText },
+                { name: '📷・instagram', type: ChannelType.GuildText },
+                { name: '🎵・tiktok', type: ChannelType.GuildText }
+            ]);
+
+            // 10. Efsane (karagore)
+            await kategoriVeKanallariOlustur('Efsane (karagore)', [
+                { name: '💰・en-değerli-futbolcular', type: ChannelType.GuildText },
+                { name: '💰・en-değerli-takımlar', type: ChannelType.GuildText },
+                { name: '🏛️・müze', type: ChannelType.GuildText },
+                { name: '⭐・efsaneler', type: ChannelType.GuildText }
+            ]);
+
+            // 11. Efsane Lig (karagore)
+            await kategoriVeKanallariOlustur('Efsane Lig (karagore)', [
+                { name: '🏆・puan-durumu', type: ChannelType.GuildText },
+                { name: '📅・fikstür', type: ChannelType.GuildText },
+                { name: '📝・maç-sonuçları', type: ChannelType.GuildText },
+                { name: '⚽・gol-krallığı', type: ChannelType.GuildText },
+                { name: '⚽・asist-krallığı', type: ChannelType.GuildText },
+                { name: '🏥・sakatlıklar', type: ChannelType.GuildText },
+                { name: '🟥・cezalılar', type: ChannelType.GuildText },
+                { name: '🥅・kadrolar', type: ChannelType.GuildText },
+                { name: '👑・sezonun-oyuncusu', type: ChannelType.GuildText },
+                { name: '👑・haftanın-oyuncusu', type: ChannelType.GuildText }
+            ]);
+
+            // 12. Efsane Cup (karagore)
+            await kategoriVeKanallariOlustur('Efsane Cup (karagore)', [
+                { name: '📅・fikstür', type: ChannelType.GuildText },
+                { name: '📝・maç-sonuçları', type: ChannelType.GuildText },
+                { name: '⚽・gol-krallığı', type: ChannelType.GuildText },
+                { name: '⚽・asist-krallığı', type: ChannelType.GuildText },
+                { name: '🟥・cezalılar', type: ChannelType.GuildText },
+                { name: '🥅・kadrolar-cup', type: ChannelType.GuildText }
+            ]);
+
+            // 13. Efsane Süper Cup (karagore)
+            await kategoriVeKanallariOlustur('Efsane Süper Cup (karagore)', [
+                { name: '📅・fikstür', type: ChannelType.GuildText },
+                { name: '🔍・maç-sonuçları', type: ChannelType.GuildText },
+                { name: '👑・krallıklar', type: ChannelType.GuildText }
+            ]);
+
+            // 14. Maç Kanalları (karagore)
+            await kategoriVeKanallariOlustur('Maç Kanalları (karagore)', [
+                { name: '📺・bein-sports', type: ChannelType.GuildText },
+                { name: '🏟️・bein-tribün', type: ChannelType.GuildText },
+                { name: '📺・exxen-spor', type: ChannelType.GuildText },
+                { name: '🏟️・exxen-tribün', type: ChannelType.GuildText }
+            ]);
+
+            // 15. Transfer (karagore)
+            await kategoriVeKanallariOlustur('Transfer (karagore)', [
+                { name: '🚧・transfer-kuralları', type: ChannelType.GuildText },
+                { name: '✅・kap', type: ChannelType.GuildText },
+                { name: '🔍・takım-arama', type: ChannelType.GuildText },
+                { name: '💷・transfer-masası', type: ChannelType.GuildText },
+                { name: '📋・kap-bilgi', type: ChannelType.GuildText }
+            ]);
+
+            await bildiriMesaji.edit('✅ **Başarılı!** İstediğin tüm Karagör kategorileri ve kanalları eksiksiz olarak kuruldu kanka!');
+
+        } catch (error) {
+            console.error(error);
+            await bildiriMesaji.edit('❌ Kanal düzeni kurulurken bir hata oluştu kanka. Botun yetkilerini kontrol et!');
         }
-    } catch (error) { console.error(error); }
-});
-
-// ==========================================
-// BUTON ETKİLEŞİMLERİ (KAYIT TAMAMLAMA)
-// ==========================================
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-
-    const [prefix, secilenRol, hedefId] = interaction.customId.split('_');
-    if (prefix !== 'kayit') return;
-
-    try {
-        const guild = interaction.guild;
-        const hedefUye = await guild.members.fetch(hedefId).catch(() => null);
-        if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı sunucuda bulunamadı kanka!', ephemeral: true });
-
-        let verilecekRolId = '';
-        let rolIsmi = '';
-
-        if (secilenRol === 'futbolcu') { verilecekRolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
-        else if (secilenRol === 'baskan') { verilecekRolId = ROL_BASKAN; rolIsmi = 'Takım Başkanı'; }
-        else if (secilenRol === 'td') { verilecekRolId = ROL_TD; rolIsmi = 'Teknik Direktör'; }
-        else if (secilenRol === 'uye') { verilecekRolId = ROL_UYE; rolIsmi = 'Üye'; }
-
-        await hedefUye.roles.add(verilecekRolId).catch(() => {});
-
-        kayitVerileri[interaction.user.id] = (kayitVerileri[interaction.user.id] || 0) + 1;
-
-        await interaction.message.delete().catch(() => {});
-
-        const sohbetKanali = guild.channels.cache.get(SOHBET_KANAL_ID) || await guild.channels.fetch(SOHBET_KANAL_ID).catch(() => null);
-        if (sohbetKanali) {
-            await sohbetKanali.send({ content: `📢 **<@${hedefUye.id}> aramıza katıldı.**` }).catch(() => {});
-
-            const embed = new EmbedBuilder()
-                .setTitle('✨ Kayıt Yapıldı!')
-                .setDescription(`🤝 • <@${hedefUye.id}> aramıza **${rolIsmi}** rolleriyle katıldı.\n\n🌟 • **Kaydı gerçekleştiren yetkili:**\n<@${interaction.user.id}>\n\n🐼 • **Aramıza hoş geldin**\n<@${hedefUye.id}>`)
-                .setColor(0x2F3136)
-                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
-                .setFooter({ text: 'Nors Kayıt Sistemi' });
-
-            await sohbetKanali.send({ embeds: [embed] }).catch(() => {});
-        }
-
-        return interaction.reply({ content: `✅ <@${hedefUye.id}> başarıyla kaydedildi ve **${rolIsmi}** rolü tanımlandı!`, ephemeral: true });
-
-    } catch (err) {
-        console.error(err);
-        return interaction.reply({ content: '❌ İşlem sırasında bir hata meydana geldi kanka.', ephemeral: true });
     }
 });
 
 client.login(process.env.TOKEN);
+                 
                         
                 
 
