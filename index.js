@@ -19,7 +19,7 @@ const DEGER_YETKILI_ROL = '1520768962193915945';
 
 const KAYIT_ODASI_ID = '1520767182563311737'; 
 const KAYIT_DUYURU_KANAL_ID = '1520767204746858567'; 
-const DEGER_BILDIRI_KANAL_ID = '1520767223646519328'; // Bildirimlerin gideceği kanal ID'si
+const DEGER_BILDIRI_KANAL_ID = '1520767223646519328'; 
 
 const ROL_FUTBOLCU = '1520770217041727598';
 const ROL_TD = '1520770167720771644';
@@ -54,9 +54,9 @@ function miktarCoz(metin) {
     return Math.floor(sayi * carpan);
 }
 
-// SAYIYI TEKRAR HARFLİ FORMATA ÇEVİREN FONKSİYON (Örn: 6000000 -> 6M)
+// SAYIYI TEKRAR HARFLİ FORMATA ÇEVİREN FONKSİYON
 function miktarFormatla(sayi) {
-    if (sayi >= 1000000000) return (sayi / 1000000000).toFixed(0) + 'M'; // Sen M olarak istiyorsan burayı ayarlayabilirsin
+    if (sayi >= 1000000000) return (sayi / 1000000000).toFixed(0) + 'B'; 
     if (sayi >= 1000000) return (sayi / 1000000).toFixed(0) + 'M';
     if (sayi >= 1000) return (sayi / 1000).toFixed(0) + 'K';
     return sayi.toString();
@@ -70,23 +70,21 @@ function veriGarantiEt(id) {
     if (oyuncuVerileri[id].banka === undefined) oyuncuVerileri[id].banka = 0;
 }
 
-// 🎯 OTOMATİK İSİM VE DEĞER MOTORU (Osimhen | SNT | 🇵🇹 | 1M formatı için)
+// 🎯 OTOMATİK İSİM VE DEĞER MOTORU
 async function degerIsle(member, miktar, islemTipi) {
     let eskiIsim = member.displayName;
     let parcalar = eskiIsim.split('|').map(p => p.trim());
     
-    // İsmin son parçasını (değeri) çekiyoruz
     let sonDegerMetni = parcalar[parcalar.length - 1];
     let mevcutDeger = miktarCoz(sonDegerMetni);
     
-    if (isNaN(mevcutDeger)) mevcutDeger = 0; // Eğer ismin sonunda değer yoksa 0 kabul et
+    if (isNaN(mevcutDeger)) mevcutDeger = 0; 
     
     let yeniDeger = (islemTipi === 'artir') ? (mevcutDeger + miktar) : (mevcutDeger - miktar);
     if (yeniDeger < 0) yeniDeger = 0;
 
     let yeniDegerMetni = miktarFormatla(yeniDeger);
 
-    // İsmin son parçasını yeni değerle değiştirip birleştiriyoruz
     parcalar[parcalar.length - 1] = yeniDegerMetni;
     let yeniIsim = parcalar.join(' | ');
 
@@ -95,14 +93,14 @@ async function degerIsle(member, miktar, islemTipi) {
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Nors Bot Giriş, Değer ve Ekonomi Sistemleri Tamamen Aktif!`);
+    console.log(`⚽ Nors Bot Tüm Sistemleriyle (Yardım Dahil) Hazır Kanka!`);
 });
 
 process.on('unhandledRejection', (reason) => { console.error("🔴 Hata:", reason); });
 process.on('uncaughtException', (err) => { console.error("🔴 Kritik Hata:", err); });
 
 // ==========================================
-// GÜVENLİKLİ GİRİŞ SİSTEMİ (18194.jpg)
+// GÜVENLİKLİ GİRİŞ SİSTEMİ
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
     try {
@@ -148,6 +146,31 @@ client.on('messageCreate', async (message) => {
             return message.channel.send(`⚠️ <@${message.author.id}> küfür ettiği için **2 dakika** susturuldu kanka.`).catch(() => {});
         }
 
+        // --- .yardim KOMUTU ---
+        if (icerikKucuk === '.yardim') {
+            const yardimEmbed = new EmbedBuilder()
+                .setTitle('📋 Nors Bot Komut Listesi')
+                .setColor(0x2F3136)
+                .setThumbnail(client.user.displayAvatarURL())
+                .setDescription(
+                    `⚽ **Oyuncu Komutları:**\n` +
+                    `• \`.ant\` - Antrenman yaparsınız (1 saat cooldown).\n` +
+                    `• \`.pen\` - Penaltı atarsınız (1 saat cooldown).\n\n` +
+                    `💰 **Ekonomi Komutları (k, m, b geçerli):**\n` +
+                    `• \`.bakiye\` veya \`.bal\` - Cüzdan bilgilerinizi gösterir.\n` +
+                    `• \`.send @üye [Miktar]\` - Oyuncuya para transfer eder. (Örn: \`.send @üye 10m\`)\n` +
+                    `• \`.paraver @üye [Miktar]\` - Yetkili oyuncuya para ekler.\n` +
+                    `• \`.paracikar @üye [Miktar]\` - Yetkili oyuncudan para siler.\n\n` +
+                    `📈 **Değer Yönetim Komutları (k, m, b geçerli):**\n` +
+                    `• \`.degerver @üye [Miktar]\` - Oyuncunun ismindeki değeri artırır. (Örn: \`.degerver @üye 5m\`)\n` +
+                    `• \`.degercikar @üye [Miktar]\` - Oyuncunun ismindeki değeri düşürür. (Örn: \`.degercikar @üye 2m\`)\n\n` +
+                    `📥 **Kayıt Komutları:**\n` +
+                    `• \`-k @üye [İsim | Pozisyon | Bayrak | Değer]\` - Serbest kayıt yapar.`
+                )
+                .setFooter({ text: 'Nors Lig Yönetim Sistemi' });
+            return message.reply({ embeds: [yardimEmbed] });
+        }
+
         // --- -k SERBEST KAYIT ---
         if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) return;
@@ -185,11 +208,8 @@ client.on('messageCreate', async (message) => {
             if (!hedefUye || isNaN(miktar)) return message.reply('❌ Yanlış kullanım. Örn: `.degerver @üye 5m`');
 
             const sonuc = await degerIsle(hedefUye, miktar, 'artir');
-            
-            // Başarı mesajı
             message.reply(`✅ <@${hedefUye.id}> oyuncusunun değeri artırıldı!\n Yeni İsmi: \`${sonuc.yeniIsim}\``);
 
-            // Değer Bildiri Kanalına Duyuru Gönderme (18195.jpg & 18159.jpg tarzı)
             const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
             if (bildiriKanali) {
                 const bEmbed = new EmbedBuilder()
@@ -213,10 +233,8 @@ client.on('messageCreate', async (message) => {
             if (!hedefUye || isNaN(miktar)) return message.reply('❌ Yanlış kullanım. Örn: `.degercikar @üye 5m`');
 
             const sonuc = await degerIsle(hedefUye, miktar, 'azalt');
-            
             message.reply(`📉 <@${hedefUye.id}> oyuncusunun değeri düşürüldü!\n Yeni İsmi: \`${sonuc.yeniIsim}\``);
 
-            // Bildiri Kanalına Gönderme
             const bildiriKanali = message.guild.channels.cache.get(DEGER_BILDIRI_KANAL_ID);
             if (bildiriKanali) {
                 const bEmbed = new EmbedBuilder()
@@ -295,7 +313,7 @@ client.on('messageCreate', async (message) => {
             return message.reply(`✅ **${miktar.toLocaleString('tr-TR')} €** başarıyla <@${hedefUye.id}> hesabına aktarıldı.`);
         }
 
-        // --- DİĞER STANDART KOMUTLAR (.ant, .pen) ---
+        // --- DİĞER STANDART KOMUTLAR ---
         if (icerikKucuk === '.ant') {
             const id = message.author.id;
             if (antrenmanCooldown.has(id) && Date.now() - antrenmanCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir antrenman yapabilirsin.');
@@ -318,7 +336,7 @@ client.on('messageCreate', async (message) => {
 });
 
 // ==========================================
-// BUTON ETKİLEŞİM MERKEZİ (18159.jpg DUYURU)
+// BUTON ETKİLEŞİM MERKEZİ
 // ==========================================
 client.on('interactionCreate', async (interaction) => {
     try {
@@ -362,4 +380,5 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+
                 
