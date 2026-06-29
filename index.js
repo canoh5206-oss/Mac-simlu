@@ -1,4 +1,5 @@
-    const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+require('dotenv').config();
 
 const client = new Client({
     intents: [
@@ -64,10 +65,26 @@ function miktarFormatla(sayi) {
 
 function veriGarantiEt(id) {
     if (!oyuncuVerileri[id]) {
-        oyuncuVerileri[id] = { ant: 0, bakiye: 0, banka: 0 };
+        oyuncuVerileri[id] = { ant: 0, bakiye: 0, banka: 0, gol: 0, kacan: 0 };
     }
     if (oyuncuVerileri[id].bakiye === undefined) oyuncuVerileri[id].bakiye = 0;
     if (oyuncuVerileri[id].banka === undefined) oyuncuVerileri[id].banka = 0;
+    if (oyuncuVerileri[id].ant === undefined) oyuncuVerileri[id].ant = 0;
+    if (oyuncuVerileri[id].gol === undefined) oyuncuVerileri[id].gol = 0;
+    if (oyuncuVerileri[id].kacan === undefined) oyuncuVerileri[id].kacan = 0;
+}
+
+// COOLDOWN SÜRESİNİ SAAT/DAKİKA/SANİYE FORMATINA ÇEVİREN FONKSİYON
+function beklemeSüresiHesapla(kalanMs) {
+    const saat = Math.floor(kalanMs / 3600000);
+    const dakika = Math.floor((kalanMs % 3600000) / 60000);
+    const saniye = Math.floor((kalanMs % 60000) / 1000);
+
+    let sonuc = "";
+    if (saat > 0) sonuc += `${saat} saat `;
+    if (dakika > 0) sonuc += `${dakika} dakika `;
+    if (saniye > 0) sonuc += `${saniye} saniye`;
+    return sonuc.trim();
 }
 
 // 🎯 OTOMATİK İSİM VE DEĞER MOTORU
@@ -93,7 +110,7 @@ async function degerIsle(member, miktar, islemTipi) {
 }
 
 client.once('ready', () => {
-    console.log(`⚽ Nors Bot Tüm Sistemleriyle (Yardım Dahil) Hazır Kanka!`);
+    console.log(`⚽ Nors Bot Tüm Sistemleriyle Hazır Kanka!`);
 });
 
 process.on('unhandledRejection', (reason) => { console.error("🔴 Hata:", reason); });
@@ -155,32 +172,34 @@ client.on('messageCreate', async (message) => {
                 .setDescription(
                     `⚽ **Oyuncu Komutları:**\n` +
                     `• \`.ant\` - Antrenman yaparsınız (1 saat cooldown).\n` +
-                    `• \`.pen\` - Penaltı atarsınız (1 saat cooldown).\n\n` +
+                    `• \`.pen\` - Penaltı atarsınız (1 saat cooldown).\n` +
+                    `• \`.istatistik\` - Gol ve kaçan penaltı istatistiklerinizi gösterir.\n\n` +
                     `💰 **Ekonomi Komutları (k, m, b geçerli):**\n` +
                     `• \`.bakiye\` veya \`.bal\` - Cüzdan bilgilerinizi gösterir.\n` +
-                    `• \`.send @üye [Miktar]\` - Oyuncuya para transfer eder. (Örn: \`.send @üye 10m\`)\n` +
+                    `• \`.send @üye [Miktar]\` - Oyuncuya para transfer eder.\n` +
                     `• \`.paraver @üye [Miktar]\` - Yetkili oyuncuya para ekler.\n` +
                     `• \`.paracikar @üye [Miktar]\` - Yetkili oyuncudan para siler.\n\n` +
                     `📈 **Değer Yönetim Komutları (k, m, b geçerli):**\n` +
-                    `• \`.degerver @üye [Miktar]\` - Oyuncunun ismindeki değeri artırır. (Örn: \`.degerver @üye 5m\`)\n` +
-                    `• \`.degercikar @üye [Miktar]\` - Oyuncunun ismindeki değeri düşürür. (Örn: \`.degercikar @üye 2m\`)\n\n` +
+                    `• \`.degerver @üye [Miktar]\` - Oyuncunun ismindeki değeri artırır.\n` +
+                    `• \`.degercikar @üye [Miktar]\` - Oyuncunun ismindeki değeri düşürür.\n\n` +
                     `📥 **Kayıt Komutları:**\n` +
-                    `• \`-k @üye [İsim | Pozisyon | Bayrak | Değer]\` - Serbest kayıt yapar.`
+                    `• \`-k @üye İstediğin İsim Formatı\` - Serbest kayıt yapar.`
                 )
                 .setFooter({ text: 'Nors Lig Yönetim Sistemi' });
             return message.reply({ embeds: [yardimEmbed] });
         }
 
-        // --- -k SERBEST KAYIT ---
+        // --- -k SERBEST KAYIT (DÜZELTİLDİ - TAMAMEN ÖZGÜR İSİM) ---
         if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) return;
             if (!message.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Kayıt yetkilisi rolün yok kanka.');
 
             const hedefUye = message.mentions.members.first();
-            if (!hedefUye) return message.reply('❌ Üyeyi etiketle kanka! Örn: `-k @üye Osimhen | SNT | 🇵🇹 | 1M`');
+            if (!hedefUye) return message.reply('❌ Üyeyi etiketle kanka! Örn: `-k @üye İstediğin İsim Formatı`');
 
+            // Etiketten sonra yazılan tüm metni tamamen alıp serbest bırakıyoruz
             const metinKismi = icerik.substring(icerik.indexOf('>') + 1).trim();
-            if (!metinKismi) return message.reply('❌ Formatı tam yaz kanka!');
+            if (!metinKismi) return message.reply('❌ Lütfen üye için bir isim düzeni gir kanka!');
 
             await hedefUye.setNickname(metinKismi).catch(() => {});
 
@@ -190,14 +209,12 @@ client.on('messageCreate', async (message) => {
                 new ButtonBuilder().setCustomId(`k_baskan_${hedefUye.id}`).setLabel('👑 Takım Başkanı').setStyle(ButtonStyle.Success)
             );
 
-            return message.reply({ content: `📝 <@${hedefUye.id}> ismi ayarlandı. Rol seç kanka:`, components: [row] });
+            return message.reply({ content: `📝 <@${hedefUye.id}> ismi **${metinKismi}** olarak ayarlandı. Rol seç kanka:`, components: [row] });
         }
 
         // ==========================================
         // DİNAMİK DEĞER SİSTEMİ KOMUTLARI
         // ==========================================
-
-        // --- .degerver KOMUTU ---
         if (icerikKucuk.startsWith('.degerver')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
 
@@ -222,7 +239,6 @@ client.on('messageCreate', async (message) => {
             return;
         }
 
-        // --- .degercikar KOMUTU ---
         if (icerikKucuk.startsWith('.degercikar')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
 
@@ -248,10 +264,8 @@ client.on('messageCreate', async (message) => {
         }
 
         // ==========================================
-        // KISALTMALI EKONOMİ SİSTEMİ (18195.jpg)
+        // EKONOMİ SİSTEMİ KOMUTLARI
         // ==========================================
-
-        // --- .bakiye / .bal ---
         if (icerikKucuk.startsWith('.bakiye') || icerikKucuk.startsWith('.bal')) {
             const hedefUye = message.mentions.members.first() || message.member;
             veriGarantiEt(hedefUye.id);
@@ -271,7 +285,6 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [bakiyeEmbed] });
         }
 
-        // --- .paraver ---
         if (icerikKucuk.startsWith('.paraver')) {
             if (!message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Ekonomi yetkin yok kanka.');
             const hedefUye = message.mentions.members.first();
@@ -284,7 +297,6 @@ client.on('messageCreate', async (message) => {
             return message.reply(`💰 <@${hedefUye.id}> cüzdanına **${miktar.toLocaleString('tr-TR')} €** eklendi kanka.`);
         }
 
-        // --- .paracikar ---
         if (icerikKucuk.startsWith('.paracikar')) {
             if (!message.member.roles.cache.some(r => TAKIM_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Ekonomi yetkin yok kanka.');
             const hedefUye = message.mentions.members.first();
@@ -297,7 +309,6 @@ client.on('messageCreate', async (message) => {
             return message.reply(`📉 <@${hedefUye.id}> cüzdanından **${miktar.toLocaleString('tr-TR')} €** çıkarıldı.`);
         }
 
-        // --- .send ---
         if (icerikKucuk.startsWith('.send')) {
             const hedefUye = message.mentions.members.first();
             const miktar = miktarCoz(argumanlar[2]);
@@ -313,71 +324,72 @@ client.on('messageCreate', async (message) => {
             return message.reply(`✅ **${miktar.toLocaleString('tr-TR')} €** başarıyla <@${hedefUye.id}> hesabına aktarıldı.`);
         }
 
-        // --- DİĞER STANDART KOMUTLAR ---
-        if (icerikKucuk === '.ant') {
+        // ==========================================
+        // GELİŞMİŞ ANTRENMAN SİSTEMİ (18236.jpg GÖRSELİNE UYGUN)
+        // ==========================================
+        if (icerikKucuk === '.ant' || icerikKucuk === '.antrenman') {
             const id = message.author.id;
-            if (antrenmanCooldown.has(id) && Date.now() - antrenmanCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir antrenman yapabilirsin.');
             veriGarantiEt(id);
-            if (!oyuncuVerileri[id].ant) oyuncuVerileri[id].ant = 0;
-            if (oyuncuVerileri[id].ant < 5) oyuncuVerileri[id].ant += 1;
-            antrenmanCooldown.set(id, Date.now());
-            return message.reply(`🏃‍♂️ Antrenman yapıldı. Durum: \`${oyuncuVerileri[id].ant}/5\``);
-        }
 
-        if (icerikKucuk === '.pen') {
-            const id = message.author.id;
-            if (penaltiCooldown.has(id) && Date.now() - penaltiCooldown.get(id) < 3600000) return message.reply('⏳ Saatte bir penaltı atabilirsin.');
-            penaltiCooldown.set(id, Date.now());
-            const res = ['⚽ GOL!', '🧤 KALECİ KURTARDI!', '💥 DİREK!'][Math.floor(Math.random() * 3)];
-            return message.reply(`🥅 Şut çekildi... Sonuç: **${res}**`);
-        }
-
-    } catch (err) { console.error(err); }
-});
-
-// ==========================================
-// BUTON ETKİLEŞİM MERKEZİ
-// ==========================================
-client.on('interactionCreate', async (interaction) => {
-    try {
-        if (!interaction.isButton()) return;
-
-        if (interaction.customId.startsWith('btn_kayit_baslat_')) {
-            if (!interaction.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id))) {
-                return interaction.reply({ content: '❌ Kayıt yetkilisi değilsin kanka!', ephemeral: true });
+            // Dinamik Cooldown Saat/Dakika/Saniye Kontrolü
+            if (antrenmanCooldown.has(id)) {
+                const gecenSure = Date.now() - antrenmanCooldown.get(id);
+                if (gecenSure < 3600000) {
+                    const kalanSureMetni = beklemeSüresiHesapla(3600000 - gecenSure);
+                    const cdEmbed = new EmbedBuilder()
+                        .setTitle('⏳ Antrenman Bekleme Süresi')
+                        .setDescription(`Mevcut antrenman serini bozma kanka! Tekrar antrenman yapmak için **${kalanSureMetni}** beklemelisin.`)
+                        .setColor(0xFF0000)
+                        .setFooter({ text: 'Nors Antrenman Sistemi' });
+                    return message.reply({ embeds: [cdEmbed] });
+                }
             }
-            const hedefUyeId = interaction.customId.replace('btn_kayit_baslat_', '');
-            return interaction.reply({ content: `🚀 Kayıt başlatıldı! Kanala direkt \`-k <@${hedefUyeId}> İsim | Pozisyon | Bayrak | 1M\` formatında yazıp rolleri ver kanka.`, ephemeral: true });
+
+            // Antrenman Sayacı Artırma
+            oyuncuVerileri[id].ant += 1;
+            antrenmanCooldown.set(id, Date.now());
+
+            const avatarURL = message.author.displayAvatarURL({ dynamic: true });
+
+            if (oyuncuVerileri[id].ant >= 5) {
+                // 5/5 Tamamlandı Görünümü
+                const tamamEmbed = new EmbedBuilder()
+                    .setTitle('⚡ ANTRENMAN SEZONU TAMAMLANDI!')
+                    .setDescription(`🏆 **Mükemmel bir antrenman serisi bitirdin!**\n\n▬ ▬ ▬ ▬ ▬ **(5 / 5)**\n\n🎯 **Bilgi**\nYöneticiler piyasa değerini güncelleyecek!`)
+                    .setThumbnail(avatarURL)
+                    .setColor(0x00FF00)
+                    .setFooter({ text: '⚽ Reality League Antrenman Sistemi' });
+
+                oyuncuVerileri[id].ant = 0; // Seriyi sıfırla
+                return message.reply({ embeds: [tamamEmbed] });
+            } else {
+                // Standart Antrenman Yapıldı Görünümü
+                let cubuklar = "▬ ".repeat(oyuncuVerileri[id].ant) + "  ".repeat(5 - oyuncuVerileri[id].ant);
+                const normalEmbed = new EmbedBuilder()
+                    .setTitle('🏃‍♂️ ANTRENMAN YAPILDI!')
+                    .setDescription(`💪 **Harika gidiyorsun! Formun her geçen gün artıyor.**\n\n${cubuklar}**(${oyuncuVerileri[id].ant} / 5)**\n\n🎯 **Bilgi**\nSeriyi tamamlamak için devam et kanka!`)
+                    .setThumbnail(avatarURL)
+                    .setColor(0x00A2E8)
+                    .setFooter({ text: '⚽ Reality League Antrenman Sistemi' });
+                return message.reply({ embeds: [normalEmbed] });
+            }
         }
 
-        const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
-        if (prefix !== 'k') return;
+        // ==========================================
+        // GELİŞMİŞ PENALTI SİSTEMİ (18237.jpg GÖRSELİNE UYGUN)
+        // ==========================================
+        if (icerikKucuk === '.pen' || icerikKucuk === '.penalti') {
+            const id = message.author.id;
+            veriGarantiEt(id);
 
-        const hedefUye = await interaction.guild.members.fetch(deleteId).catch(() => null);
-        if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı sunucuda yok.', ephemeral: true });
-
-        let rolId = ''; let rolIsmi = '';
-        if (rolTipi === 'futbolcu') { rolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
-        else if (rolTipi === 'td') { rolId = ROL_TD; rolIsmi = 'Teknik Direktör'; }
-        else if (rolTipi === 'baskan') { rolId = ROL_BASKAN; rolIsmi = 'Takım Başkanı'; }
-
-        await hedefUye.roles.add(rolId).catch(() => {});
-        await interaction.message.delete().catch(() => {});
-
-        const duyuruKanali = interaction.guild.channels.cache.get(KAYIT_DUYURU_KANAL_ID);
-        if (duyuruKanali) {
-            let pIsim = hedefUye.displayName;
-            const logEmbed = new EmbedBuilder()
-                .setAuthor({ name: 'Kayıt Yapıldı!', iconURL: interaction.guild.iconURL({ dynamic: true }) })
-                .setDescription(`🔷 • <@${hedefUye.id}> | **${pIsim}** aramıza **${rolIsmi}** rolleriyle katıldı.\n\n⚫ • **Kaydı gerçekleştiren yetkili:**\n<@${interaction.user.id}>\n\n🐼 • **Aramıza hoş geldin!**`)
-                .setColor(0x1F2225)
-                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }));
-
-            await duyuruKanali.send({ content: `📢 **${pIsim}** aramıza katıldı!`, embeds: [logEmbed] }).catch(() => {});
-        }
-        return interaction.reply({ content: `✅ İşlem tamamlandı kanka.`, ephemeral: true });
-    } catch (err) { console.error(err); }
-});
-
-client.login(process.env.TOKEN);
+            // Dinamik Cooldown Kontrolü
+            if (penaltiCooldown.has(id)) {
+                const gecenSure = Date.now() - penaltiCooldown.get(id);
+                if (gecenSure < 3600000) {
+                    const kalanSureMetni = beklemeSüresiHesapla(3600000 - gecenSure);
+                    const cdEmbed = new EmbedBuilder()
+                        .setTitle('🛡️ DEFANS BLOKLADIII! 🔵')
+                        .setDescription(`Şut güçlüydü ama çizgi üzerindeki defans oyuncusu topu uzaklaştırdı!\n\n⏳ **Bekleme**\n${kalanSureMetni} sonra tekrar deneyebilirsin`)
+                        .setColor(0x00A2E8)
+                        .setFooter({ 
           
