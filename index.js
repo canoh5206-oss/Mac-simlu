@@ -74,7 +74,7 @@ function veriGarantiEt(id) {
     if (oyuncuVerileri[id].kacan === undefined) oyuncuVerileri[id].kacan = 0;
 }
 
-// COOLDOWN SÜRESİNİ SAAT/DAKİKA/SANİYE FORMATINA ÇEVİREN FONKSİYON
+// COOLDOWN SÜRESİNİ FORMATLAYAN FONKSİYON
 function beklemeSüresiHesapla(kalanMs) {
     const saat = Math.floor(kalanMs / 3600000);
     const dakika = Math.floor((kalanMs % 3600000) / 60000);
@@ -189,7 +189,7 @@ client.on('messageCreate', async (message) => {
             return message.reply({ embeds: [yardimEmbed] });
         }
 
-        // --- -k SERBEST KAYIT (DÜZELTİLDİ - TAMAMEN ÖZGÜR İSİM) ---
+        // --- -k SERBEST KAYIT ---
         if (icerikKucuk.startsWith('-k') || icerikKucuk.startsWith('-kayit')) {
             if (message.channel.id !== KAYIT_ODASI_ID) return;
             if (!message.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id))) return message.reply('❌ Kayıt yetkilisi rolün yok kanka.');
@@ -197,7 +197,6 @@ client.on('messageCreate', async (message) => {
             const hedefUye = message.mentions.members.first();
             if (!hedefUye) return message.reply('❌ Üyeyi etiketle kanka! Örn: `-k @üye İstediğin İsim Formatı`');
 
-            // Etiketten sonra yazılan tüm metni tamamen alıp serbest bırakıyoruz
             const metinKismi = icerik.substring(icerik.indexOf('>') + 1).trim();
             if (!metinKismi) return message.reply('❌ Lütfen üye için bir isim düzeni gir kanka!');
 
@@ -213,7 +212,7 @@ client.on('messageCreate', async (message) => {
         }
 
         // ==========================================
-        // DİNAMİK DEĞER SİSTEMİ KOMUTLARI
+        // DEĞER KOMUTLARI
         // ==========================================
         if (icerikKucuk.startsWith('.degerver')) {
             if (!message.member.roles.cache.has(DEGER_YETKILI_ROL)) return message.reply('❌ Değer yetkilisi rolün yok kanka.');
@@ -264,7 +263,7 @@ client.on('messageCreate', async (message) => {
         }
 
         // ==========================================
-        // EKONOMİ SİSTEMİ KOMUTLARI
+        // EKONOMİ KOMUTLARI
         // ==========================================
         if (icerikKucuk.startsWith('.bakiye') || icerikKucuk.startsWith('.bal')) {
             const hedefUye = message.mentions.members.first() || message.member;
@@ -325,13 +324,12 @@ client.on('messageCreate', async (message) => {
         }
 
         // ==========================================
-        // GELİŞMİŞ ANTRENMAN SİSTEMİ (18236.jpg GÖRSELİNE UYGUN)
+        // ANTRENMAN SİSTEMİ
         // ==========================================
         if (icerikKucuk === '.ant' || icerikKucuk === '.antrenman') {
             const id = message.author.id;
             veriGarantiEt(id);
 
-            // Dinamik Cooldown Saat/Dakika/Saniye Kontrolü
             if (antrenmanCooldown.has(id)) {
                 const gecenSure = Date.now() - antrenmanCooldown.get(id);
                 if (gecenSure < 3600000) {
@@ -345,14 +343,12 @@ client.on('messageCreate', async (message) => {
                 }
             }
 
-            // Antrenman Sayacı Artırma
             oyuncuVerileri[id].ant += 1;
             antrenmanCooldown.set(id, Date.now());
 
             const avatarURL = message.author.displayAvatarURL({ dynamic: true });
 
             if (oyuncuVerileri[id].ant >= 5) {
-                // 5/5 Tamamlandı Görünümü
                 const tamamEmbed = new EmbedBuilder()
                     .setTitle('⚡ ANTRENMAN SEZONU TAMAMLANDI!')
                     .setDescription(`🏆 **Mükemmel bir antrenman serisi bitirdin!**\n\n▬ ▬ ▬ ▬ ▬ **(5 / 5)**\n\n🎯 **Bilgi**\nYöneticiler piyasa değerini güncelleyecek!`)
@@ -360,10 +356,9 @@ client.on('messageCreate', async (message) => {
                     .setColor(0x00FF00)
                     .setFooter({ text: '⚽ Reality League Antrenman Sistemi' });
 
-                oyuncuVerileri[id].ant = 0; // Seriyi sıfırla
+                oyuncuVerileri[id].ant = 0; 
                 return message.reply({ embeds: [tamamEmbed] });
             } else {
-                // Standart Antrenman Yapıldı Görünümü
                 let cubuklar = "▬ ".repeat(oyuncuVerileri[id].ant) + "  ".repeat(5 - oyuncuVerileri[id].ant);
                 const normalEmbed = new EmbedBuilder()
                     .setTitle('🏃‍♂️ ANTRENMAN YAPILDI!')
@@ -376,13 +371,12 @@ client.on('messageCreate', async (message) => {
         }
 
         // ==========================================
-        // GELİŞMİŞ PENALTI SİSTEMİ (18237.jpg GÖRSELİNE UYGUN)
+        // PENALTI SİSTEMİ
         // ==========================================
         if (icerikKucuk === '.pen' || icerikKucuk === '.penalti') {
             const id = message.author.id;
             veriGarantiEt(id);
 
-            // Dinamik Cooldown Kontrolü
             if (penaltiCooldown.has(id)) {
                 const gecenSure = Date.now() - penaltiCooldown.get(id);
                 if (gecenSure < 3600000) {
@@ -391,5 +385,17 @@ client.on('messageCreate', async (message) => {
                         .setTitle('🛡️ DEFANS BLOKLADIII! 🔵')
                         .setDescription(`Şut güçlüydü ama çizgi üzerindeki defans oyuncusu topu uzaklaştırdı!\n\n⏳ **Bekleme**\n${kalanSureMetni} sonra tekrar deneyebilirsin`)
                         .setColor(0x00A2E8)
-                        .setFooter({ 
-          
+                        .setFooter({ text: '⚽ Penaltı Sistemi' });
+                    return message.reply({ embeds: [cdEmbed] });
+                }
+            }
+
+            penaltiCooldown.set(id, Date.now());
+
+            const ihtimaller = ['GOL', 'KURTARIS', 'DIREK', 'DEFANS'];
+            const sonuc = ihtimaller[Math.floor(Math.random() * ihtimaller.length)];
+
+            const penEmbed = new EmbedBuilder().setFooter({ text: '⚽ Penaltı Sistemi' });
+
+            if (sonuc === 'GOL') {
+                oyuncuVerileri[id]
