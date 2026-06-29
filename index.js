@@ -398,4 +398,91 @@ client.on('messageCreate', async (message) => {
             const penEmbed = new EmbedBuilder().setFooter({ text: '⚽ Penaltı Sistemi' });
 
             if (sonuc === 'GOL') {
-                oyuncuVerileri[id]
+                oyuncuVerileri[id].gol += 1;
+                penEmbed.setTitle('⚽ REKORLU ŞUT VE GOOOL!')
+                    .setDescription(`Top kalecinin uzanamayacağı tam doksana gitti, mükemmel şut kanka!`)
+                    .setColor(0x00FF00);
+            } else if (sonuc === 'KURTARIS') {
+                oyuncuVerileri[id].kacan += 1;
+                penEmbed.setTitle('🧤 KALECİ DEVLEŞTİ!')
+                    .setDescription(`Müthiş uzandı ve son anda topu kornere çelmeyi başardı!`)
+                    .setColor(0xFF0000);
+            } else if (sonuc === 'DIREK') {
+                oyuncuVerileri[id].kacan += 1;
+                penEmbed.setTitle('💥 DİREKTE PATLADI!')
+                    .setDescription(`Çok sert vurdun ama şanssızlık, top çataldan geri döndü!`)
+                    .setColor(0xFFAA00);
+            } else if (sonuc === 'DEFANS') {
+                oyuncuVerileri[id].kacan += 1;
+                penEmbed.setTitle('🛡️ DEFANS ÇİZGİDEN ÇIKARDI!')
+                    .setDescription(`Kaleciyi geçtin şutunu çektin ama defans son anda kayarak çizgide bloke etti!`)
+                    .setColor(0x00A2E8);
+            }
+
+            penEmbed.addFields(
+                { name: '📊 Toplam Gollerin', value: `\`${oyuncuVerileri[id].gol}\` Gol`, inline: true },
+                { name: '📉 Kaçan Şutların', value: `\`${oyuncuVerileri[id].kacan}\` Şut`, inline: true }
+            );
+
+            return message.reply({ embeds: [penEmbed] });
+        }
+
+        if (icerikKucuk === '.istatistik' || icerikKucuk === '.ist') {
+            const id = message.author.id;
+            veriGarantiEt(id);
+            const istEmbed = new EmbedBuilder()
+                .setTitle(`📊 ${message.author.username} Penaltı İstatistikleri`)
+                .setColor(0xFFAA00)
+                .setDescription(`⚽ **Toplam Gol:** ${oyuncuVerileri[id].gol}\n❌ **Kaçan/Bloke Edilen:** ${oyuncuVerileri[id].kacan}`)
+                .setTimestamp();
+            return message.reply({ embeds: [istEmbed] });
+        }
+
+    } catch (err) { console.error(err); }
+});
+
+// ==========================================
+// BUTON ETKİLEŞİM MERKEZİ
+// ==========================================
+client.on('interactionCreate', async (interaction) => {
+    try {
+        if (!interaction.isButton()) return;
+
+        if (interaction.customId.startsWith('btn_kayit_baslat_')) {
+            if (!interaction.member.roles.cache.some(r => KAYIT_YETKILI_ROLLER.includes(r.id))) {
+                return interaction.reply({ content: '❌ Kayıt yetkilisi değilsin kanka!', ephemeral: true });
+            }
+            const hedefUyeId = interaction.customId.replace('btn_kayit_baslat_', '');
+            return interaction.reply({ content: `🚀 Kayıt başlatıldı! Kanala direkt \`-k <@${hedefUyeId}> İstediğin İsim\` formatında yazıp rolleri ver kanka.`, ephemeral: true });
+        }
+
+        const [prefix, rolTipi, deleteId] = interaction.customId.split('_');
+        if (prefix !== 'k') return;
+
+        const hedefUye = await interaction.guild.members.fetch(deleteId).catch(() => null);
+        if (!hedefUye) return interaction.reply({ content: '❌ Kullanıcı sunucuda yok.', ephemeral: true });
+
+        let rolId = ''; let rolIsmi = '';
+        if (rolTipi === 'futbolcu') { rolId = ROL_FUTBOLCU; rolIsmi = 'Futbolcu'; }
+        else if (rolTipi === 'td') { rolId = ROL_TD; rolIsmi = 'Teknik Direktör'; }
+        else if (rolTipi === 'baskan') { rolId = ROL_BASKAN; rolIsmi = 'Takım Başkanı'; }
+
+        await hedefUye.roles.add(rolId).catch(() => {});
+        await interaction.message.delete().catch(() => {});
+
+        const duyuruKanali = interaction.guild.channels.cache.get(KAYIT_DUYURU_KANAL_ID);
+        if (duyuruKanali) {
+            let pIsim = hedefUye.displayName;
+            const logEmbed = new EmbedBuilder()
+                .setAuthor({ name: 'Kayıt Yapıldı!', iconURL: interaction.guild.iconURL({ dynamic: true }) })
+                .setDescription(`🔷 • <@${hedefUye.id}> | **${pIsim}** aramıza **${rolIsmi}** rolleriyle katıldı.\n\n⚫ • **Kaydı gerçekleştiren yetkili:**\n<@${interaction.user.id}>\n\n🐼 • **Aramıza hoş geldin!**`)
+                .setColor(0x1F2225)
+                .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }));
+
+            await duyuruKanali.send({ content: `📢 **${pIsim}** aramıza katıldı!`, embeds: [logEmbed] }).catch(() => {});
+        }
+        return interaction.reply({ content: `✅ İşlem tamamlandı kanka.`, ephemeral: true });
+    } catch (err) { console.error(err); }
+});
+
+client.login(process.env.TOKEN);
