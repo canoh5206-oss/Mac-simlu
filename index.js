@@ -109,4 +109,4 @@ client.on('messageCreate', async (message) => {
 });
 
 // BURAYA: Tırnak işaretlerinin içine Discord Developer Portal'dan aldığın gizli bot tokenini yapıştır!
-client.login("BURAYA_BOT_TOKENINI_YAZ");
+client.login("MTUyMDg3MzczNzA4NjMwNDQ2Ng.GQS9Gz.81eYne9yrRsQ-KRx58LHgZFClF6IMtPgdyujdw");
