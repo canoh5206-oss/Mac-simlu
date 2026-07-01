@@ -1,116 +1,112 @@
-   const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const express = require('express');
-
-const app = express();
-const port = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Kayıt Sistemi Aktif!'));
-app.listen(port, '0.0.0.0', () => console.log(`Web sunucusu ${port} portunda hazır.`));
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,    // Sunucuya girenleri yakalamak için şart!
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
     ]
 });
 
-// AYARLAR (Rol ve Kanal ID'lerin)
-const CONFIG = {
-    token: "DISCORD_DAN_ALDIĞIN_BOT_TOKENINI_BURAYA_YAZ",
-    sunucuId: "1511859511634301059",
-    yetkiliRolId: "1521842728202141718",      // Kayıt yapabilen yetkili rolü
-    kayitliRolId: "1521842733462061227",      // Kayıt edilince verilecek rol
-    kayitsizRolId: "1521842738838896781",    // Sunucuya girince otomatik verilecek ve kayıtta silinecek rol
-    girisLogKanalId: "1521844270473154571",   // Biri girdiğinde mesaj atılacak kanal
-    kayitLogKanalId: "1521842778240188528"    // Kayıt tamamlandığında mesaj atılacak kanal
-};
+const PREFIX = ".";
 
-client.on('ready', () => {
-    console.log(`✅ ${client.user.tag} kayıt sistemi başarıyla aktif edildi!`);
+// --- ID TANIMLAMALARI ---
+const KAYITLI_ROL_ID = "1521842733462061227";      // Kayıt edilince verilecek rol
+const KAYITSIZ_ROL_ID = "1521842738838896781";     // Sunucuya girene otomatik verilecek / Kayıt olunca silinecek rol
+const YETKILI_ROL_ID = "1521842728202141718";      // .k komutunu kullanabilecek yetkili rolü
+
+const GIRIS_LOG_KANAL_ID = "1521844270473154571";  // Biri girince "Kayıt et" mesajı atılacak kanal
+const KAYIT_LOG_KANAL_ID = "1521842778240188528";  // Kayıt işlemi başarılı olunca mesaj atılacak kanal
+
+client.once('ready', () => {
+    console.log(`[BOT] ${client.user.tag} başarıyla aktif edildi!`);
 });
 
-// 1. OTOMATİK ROL VE GİRİŞ LOG SİSTEMİ
+// --- OTO ROL (SUNUCUYA BİRİ GİRİNCE) ---
 client.on('guildMemberAdd', async (member) => {
-    if (member.guild.id !== CONFIG.sunucuId) return;
-
     try {
-        // Sunucuya giren kişiye otomatik olarak kayıtsız rolünü verir
-        await member.roles.add(CONFIG.kayitsizRolId);
+        // Kayıtsız rolünü otomatik ver
+        await member.roles.add(KAYITSIZ_ROL_ID);
         
-        // Giriş log kanalına bilgilendirme mesajı gönderir
-        const logKanal = member.guild.channels.cache.get(CONFIG.girisLogKanalId);
-        if (logKanal) {
-            const embed = new EmbedBuilder()
-                .setTitle("📥 Sunucuya Yeni Biri Katıldı!")
-                .setDescription(`Hoş geldin ${member}! Seninle birlikte sunucumuz daha da büyüdü.\n\nKayıt olmak için yetkilileri bekleyebilir veya adımları takip edebilirsin.`)
-                .setColor("Green")
+        // Giriş log kanalına şık mesaj gönder
+        const girisKanal = member.guild.channels.cache.get(GIRIS_LOG_KANAL_ID);
+        if (girisKanal) {
+            const girisEmbed = new EmbedBuilder()
+                .setColor('#2F3136')
+                .setTitle('📥 Yeni Üye Katıldı')
+                .setDescription(`Hoş geldin ${member}! Sunucuya otomatik olarak <@&${KAYITSIZ_ROL_ID}> rolü verildi.\n\nYetkililer sizinle ilgilenecektir.`)
                 .setTimestamp();
-            logKanal.send({ content: `${member}`, embeds: [embed] });
+            
+            girisKanal.send({ content: `<@&${YETKILI_ROL_ID}> kayıt et!`, embeds: [girisEmbed] });
         }
     } catch (error) {
-        console.error("Giriş işleminde hata oluştu:", error);
+        console.error("Oto rol verirken veya log atarken hata oluştu:", error);
     }
 });
 
-// 2. .k İSİM KAYIT SİSTEMİ
+// --- KAYIT KOMUTU (.k @üye isim) ---
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild || message.guild.id !== CONFIG.sunucuId) return;
+    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
-    // .k komutunu kontrol et
-    if (message.content.startsWith('.k ')) {
-        // Komutu kullanan kişi kayıt yetkilisi mi?
-        if (!message.member.roles.cache.has(CONFIG.yetkiliRolId)) {
-            return message.reply("⚠️ Bu komutu kullanmak için gerekli kayıt yetkisine sahip değilsin!");
+    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    if (command === 'k') {
+        // 1. Yetkili Kontrolü
+        if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
+            return message.reply("❌ Bu komutu kullanmak için gerekli yetkiye sahip değilsin!");
         }
 
-        // Mesajı parçala: .k @etiket İsim
-        const args = message.content.slice(3).trim().split(' ');
+        // 2. Üye ve İsim Kontrolü
         const hedefUye = message.mentions.members.first();
+        const yeniIsim = args.slice(1).join(" "); // Etiketlenen üyeden sonra yazılan her şeyi isim kabul eder
 
-        if (!hedefUye) {
-            return message.reply("⚠️ Kullanımı hatalı yaptın! Örnek: `.k @kullanıcı İsim` şeklinde yazmalısın.");
-        }
-
-        // Etiket haricindeki tüm yazıyı isim olarak birleştir (İstediği ismi yapabilmesi için)
-        const yeniIsim = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim();
-
-        if (!yeniIsim) {
-            return message.reply("⚠️ Lütfen üyenin sunucudaki yeni ismini de yaz.");
+        if (!hedefUye || !yeniIsim) {
+            return message.reply(`❌ **Hatalı Kullanım!**\nFormat: \`.k @üye yeni_isim\``);
         }
 
         try {
-            // Üyenin adını değiştirir
+            // 3. İsmini Değiştir
             await hedefUye.setNickname(yeniIsim);
 
-            // Kayıtlı rolünü verir, kayıtsız rolünü siler
-            await hedefUye.roles.add(CONFIG.kayitliRolId);
-            await hedefUye.roles.remove(CONFIG.kayitsizRolId);
-
-            // Yetkiliye başarı mesajı atar
-            message.reply(`✅ ${hedefUye} kişisi başarıyla \`${yeniIsim}\` ismiyle kayıt edildi!`);
-
-            // Kayıt log kanalına bilgilendirme gönderir
-            const kayitLogKanal = message.guild.channels.cache.get(CONFIG.kayitLogKanalId);
-            if (kayitLogKanal) {
-                const embed = new EmbedBuilder()
-                    .setTitle("🎉 Bir Üye Kayıt Edildi!")
-                    .addFields(
-                        { name: "🏃 Kayıt Edilen:", value: `${hedefUye} (\`${hedefUye.id}\`)`, inline: true },
-                        { name: "🛡️ Kayıt Eden Yetkili:", value: `${message.author}`, inline: true },
-                        { name: "📝 Yeni İsim:", value: `\`${yeniIsim}\``, inline: false }
-                    )
-                    .setColor("Blurple")
-                    .setTimestamp();
-                kayitLogKanal.send({ embeds: [embed] });
+            // 4. Rolleri Düzenle (Kayıtlı ver, Kayıtsız sil)
+            await hedefUye.roles.add(KAYITLI_ROL_ID);
+            if (hedefUye.roles.cache.has(KAYITSIZ_ROL_ID)) {
+                await hedefUye.roles.remove(KAYITSIZ_ROL_ID);
             }
+
+            // 5. Kayıt Başarılı Mesajı (Mevcut Kanala)
+            const basariliEmbed = new EmbedBuilder()
+                .setColor('#2F3136')
+                .setTitle('✅ Kayıt İşlemi Başarılı')
+                .setDescription(`${hedefUye} kullanıcısı başarıyla kayıt edildi!`)
+                .addFields(
+                    { name: '📝 Yeni İsim', value: `\`${yeniIsim}\``, inline: true },
+                    { name: '👤 Kayıt Eden Yetkili', value: `${message.author}`, inline: true }
+                )
+                .setTimestamp();
+
+            await message.reply({ embeds: [basariliEmbed] });
+
+            // 6. Kayıt Log Kanalına Bilgi Gönder
+            const kayitLogKanal = message.guild.channels.cache.get(KAYIT_LOG_KANAL_ID);
+            if (kayitLogKanal) {
+                const logEmbed = new EmbedBuilder()
+                    .setColor('#2F3136')
+                    .setTitle('🗂️ Kayıt Günlüğü')
+                    .setDescription(`${hedefUye} üyesi, ${message.author} tarafından kayıt edildi ve rolleri güncellendi.`)
+                    .setTimestamp();
+                
+                kayitLogKanal.send({ embeds: [logEmbed] });
+            }
+
         } catch (error) {
-            console.error("Kayıt esnasında bir hata meydana geldi:", error);
-            message.reply("❌ Botun yetkisi üyenin ismini veya rolünü değiştirmeye yetmiyor! Lütfen botun rolünü Discord ayarlarında en üste taşı.");
+            console.error("Kayıt işlemi sırasında hata oluştu:", error);
+            return message.reply("❌ Rolleri değiştirirken veya ismi güncellerken bir hata oluştu! Botun rolünün kayıt edilecek rollerin **üstünde** olduğundan emin olun.");
         }
     }
 });
 
-// Discord Bot Token Girişi
-client.login(CONFIG.token);
-
+// BURAYA: Tırnak işaretlerinin içine Discord Developer Portal'dan aldığın gizli bot tokenini yapıştır!
+client.login("BURAYA_BOT_TOKENINI_YAZ");
