@@ -8,7 +8,7 @@ const {
     ComponentType
 } = require('discord.js');
 const fs = require('fs');
-const moment = require('moment'); // Zaman hesaplamaları için
+const moment = require('moment');
 require('moment/locale/tr'); 
 moment.locale('tr');
 
@@ -103,7 +103,7 @@ function profilEmbedOlustur(member) {
 // SUNUCUYA BİRİ GİRDİĞİNDE
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
-    await member.roles.add(ROLLER.KAYIZSIZ).catch(() => null);
+    await member.roles.add(ROLLER.KAYITSIZ).catch(() => null);
     
     const üyeSayisi = member.guild.memberCount;
     const logKanal = member.guild.channels.cache.get(KANALLAR.HOZ_GELDIN_LOG);
@@ -426,5 +426,4 @@ client.once('ready', () => {
 });
 
 client.login(process.env.TOKEN);
-    
-  
+            
