@@ -1,12 +1,13 @@
 {
-  "name": "discord-kayit-botu",
+  "name": "mac-simlu",
   "version": "1.0.0",
-  "description": "Gelişmiş Kayıt ve Rol Sistemi",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.3"
+    "discord.js": "^14.14.1",
+    "moment": "^2.30.1"
   }
 }
