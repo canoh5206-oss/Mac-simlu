@@ -1,3 +1,4 @@
+
 const { 
     Client, 
     GatewayIntentBits, 
@@ -85,7 +86,6 @@ function parseDeger(metin) {
     return parseFloat(temiz) || 0;
 }
 
-// Oyuncunun profil embedini oluşturan ortak fonksiyon
 function profilEmbedOlustur(member) {
     profilGereksinim(member.id);
     const p = data.oyuncular[member.id];
@@ -106,7 +106,7 @@ function profilEmbedOlustur(member) {
 }
 
 // ==========================================
-// YENİ GİRİŞ YAPILDIĞINDA (DÜZELTİLDİ)
+// SUNUCUYA BİRİ GİRDİĞİNDE (YENİ DÜZENLEME)
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
     await member.roles.add(ROLLER.KAYITSIZ).catch(() => null);
@@ -114,13 +114,25 @@ client.on('guildMemberAdd', async (member) => {
 
     const logKanal = member.guild.channels.cache.get(KANALLAR.HOZ_GELDIN_LOG);
     if (logKanal) {
-        const hgEmbed = profilEmbedOlustur(member);
-        hgEmbed.setTitle(`📥 Sunucuya Yeni Biri Geldi!`);
-        hgEmbed.setDescription(`Sunucumuz şu an **${üyeSayisi}** kişi! Lütfen kayıt edin.`);
+        const hgEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle(`📥 Sunucumuza Biri Geldi!`)
+            .setThumbnail(member.user.displayAvatarURL())
+            .setDescription(`**Merhaba, hoş geldin! Lütfen buraya merhaba yazar mısın?**\n\n👥 **Mevcut Kişi Sayısı:** ${üyeSayisi}\n📝 Yetkililerimiz seninle en kısa sürede ilgilenecektir.`)
+            .setTimestamp();
+
+        // Direkt tıklayıp kayıt penceresini açacak "Kayıt Et" butonu
+        const hgRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`hg_kayit_${member.id}`) // İçine giren kişinin ID'sini gömdük
+                .setLabel('Kayıt Et')
+                .setStyle(ButtonStyle.Primary)
+        );
 
         logKanal.send({ 
             content: `📥 Biri geldi kayıt edin <@&${ROLLER.KAYIT_YETKILISI}> | ${member}`, 
-            embeds: [hgEmbed] 
+            embeds: [hgEmbed],
+            components: [hgRow]
         });
     }
 });
@@ -130,15 +142,39 @@ client.once('ready', () => {
 });
 
 // ==========================================
-// MESAJ KOMUTLARI
+// MESAJ VE INTERACTION (BUTON) DİNLEYİCİSİ
 // ==========================================
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isButton()) return;
+
+    // Hoş geldin mesajındaki "Kayıt Et" butonuna basıldığında
+    if (interaction.customId.startsWith('hg_kayit_')) {
+        if (!interaction.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
+            return interaction.reply({ content: "❌ Bu butonu sadece **Kayıt Yetkilileri** kullanabilir.", ephemeral: true });
+        }
+
+        const hedefId = interaction.customId.replace('hg_kayit_', '');
+        const hedefUye = await interaction.guild.members.fetch(hedefId).catch(() => null);
+
+        if (!hedefUye) {
+            return interaction.reply({ content: "❌ Kullanıcı sunucudan ayrılmış.", ephemeral: true });
+        }
+
+        // Yetkiliden isim istemek için modal açmak yerine hızlıca sohbet kanalından komutla girmesini hatırlatıyoruz
+        return interaction.reply({ 
+            content: `📝 Lütfen sohbet alanına şu komutu yazarak devam edin:\n\`\`\`.k <@${hedefId}> İsim | snt | 🇩🇪 | 0\`\`\``, 
+            ephemeral: true 
+        });
+    }
+});
+
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // Yardim Menüsü
+    // .yardim
     if (command === 'yardim') {
         const yardimEmbed = new EmbedBuilder()
             .setColor('#2F3136')
@@ -155,7 +191,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ------------------------------------------
-    // .k KAYIT SİSTEMİ (DÜZELTİLDİ)
+    // .k KOMUTU (GÜNCELLENMİŞ KAYIT PANELİ)
     // ------------------------------------------
     if (command === 'k') {
         if (!message.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
@@ -189,7 +225,7 @@ client.on('messageCreate', async (message) => {
 
             await hedef.setNickname(yeniIsim).catch(() => null);
             await hedef.roles.remove(ROLLER.KAYITSIZ).catch(() => null);
-            await hedef.roles.add(secilenRol).catch(() => null);
+            await memberRoles = await hedef.roles.add(secilenRol).catch(() => null);
 
             profilGereksinim(hedef.id);
             const üyeSayisi = message.guild.memberCount;
@@ -197,18 +233,16 @@ client.on('messageCreate', async (message) => {
             const basariliLogKanal = message.guild.channels.cache.get(KANALLAR.KAYIT_BAŞARILI_LOG);
             if (basariliLogKanal) {
                 const onayEmbed = profilEmbedOlustur(hedef);
-                onayEmbed.setDescription(`🎉 Kayıt başarıyla tamamlandı! Sunucumuz şu an **${üyeSayisi}** kişi.`);
+                onayEmbed.setDescription(`🎉 **Kayıt başarıyla tamamlandı!**\n\n👤 **Kişi Sayısı:** Sunucumuz şu an **${üyeSayisi}** kişi.`);
                 basariliLogKanal.send({ content: `Kayıt edildi hoş geldiniz <@${hedef.id}>`, embeds: [onayEmbed] });
             }
 
-            await msg.edit({ content: `✅ ${hedef} kullanıcısının kaydı başarıyla tamamlandı ve profili loglandı!`, components: [] });
+            await msg.edit({ content: `✅ ${hedef} kullanıcısının kaydı başarıyla tamamlandı ve profili güncellendi!`, components: [] });
             collector.stop();
         });
     }
 
-    // ------------------------------------------
-    // .ant SİSTEMİ (DÜZELTİLDİ - PROFİL GÖSTERİR)
-    // ------------------------------------------
+    // .ant 
     if (command === 'ant') {
         profilGereksinim(message.author.id);
         const simdi = Date.now();
@@ -229,9 +263,7 @@ client.on('messageCreate', async (message) => {
         return message.reply({ content: `🏋️ **Antrenman Yapıldı! Güncel Profiliniz:**`, embeds: [pEmbed] });
     }
 
-    // ------------------------------------------
-    // .pen SİSTEMİ (DÜZELTİLDİ - PROFİL GÖSTERİR)
-    // ------------------------------------------
+    // .pen
     if (command === 'pen') {
         profilGereksinim(message.author.id);
         const simdi = Date.now();
@@ -247,7 +279,7 @@ client.on('messageCreate', async (message) => {
 
         let bildirimMesaji = "";
         if (sonuc === 'gol') { data.oyuncular[message.author.id].gol += 1; bildirimMesaji = "⚽ **GOOOL!** Topu filelerle buluşturdun!"; }
-        else if (sonuc === 'direk') { data.oyuncular[message.author.id].direk += 1; bildirimMesaji = "💥 **DİREK!** Top sertçe direğe çarptı!"; }
+        else if (sonuc === 'direk') { data.oyuncular[message.author.id].direk += 1; bildirimMesaji = "💥 **DİREK!** Top sertçe direğe çarpı!"; }
         else { data.oyuncular[message.author.id].kurtaris += 1; bildirimMesaji = "🧤 **KURTARIŞ!** Kaleci köşeyi iyi kapattı."; }
 
         data.oyuncular[message.author.id].penSüre = simdi;
@@ -257,7 +289,7 @@ client.on('messageCreate', async (message) => {
         return message.reply({ content: `${bildirimMesaji}\n\n🔄 **Güncel Profiliniz:**`, embeds: [pEmbed] });
     }
 
-    // Değer Komutları
+    // .degerekle & .degercikar
     if (command === 'degerekle' || command === 'degercikar') {
         if (!message.member.roles.cache.has(ROLLER.DEGER_YETKILISI)) return message.reply("❌ Yetkin yok!");
         const hedef = message.mentions.members.first();
@@ -290,14 +322,14 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Profil Bakma
+    // .profil
     if (command === 'profil') {
         const hedef = message.mentions.members.first() || message.member;
         const pEmbed = profilEmbedOlustur(hedef);
         return message.reply({ embeds: [pEmbed] });
     }
 
-    // Takım ve Transfer Komutları (Eski yapıyla birebir aynı)
+    // .takimkur
     if (command === 'takimkur') {
         if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
         const hedef = message.mentions.members.first();
@@ -308,6 +340,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(`✅ **${takimAdi}** kulübü kuruldu! Sahibi: ${hedef}`);
     }
 
+    // .takimsil
     if (command === 'takimsil') {
         if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
         const takimAdi = args.join(" ");
@@ -315,6 +348,7 @@ client.on('messageCreate', async (message) => {
         return message.reply("❌ Takım bulunamadı.");
     }
 
+    // .takimliste
     if (command === 'takimliste') {
         const tList = Object.values(data.takimlar);
         if (tList.length === 0) return message.reply("❌ Ligde takım bulunmuyor.");
@@ -322,6 +356,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🏛️ **Efsane Lig Kulüpleri:**\n\n${liste}`);
     }
 
+    // .oyuncuekle & .oyuncucikar
     if (command === 'oyuncuekle' || command === 'oyuncucikar') {
         if (!message.member.roles.cache.has(ROLLER.TEKNIK_DIREKTOR) && !message.member.roles.cache.has(ROLLER.BASKAN)) return message.reply("❌ Kulüp yetkiniz yok!");
         const hedef = message.mentions.members.first();
@@ -344,6 +379,7 @@ client.on('messageCreate', async (message) => {
         saveDB();
     }
 
+    // .kadro
     if (command === 'kadro') {
         const takimAdi = args.join(" ");
         const kulüp = data.takimlar[takimAdi?.toLowerCase()];
