@@ -1,5 +1,4 @@
-
-                        const { 
+const { 
     Client, 
     GatewayIntentBits, 
     EmbedBuilder, 
@@ -9,7 +8,7 @@
     ComponentType
 } = require('discord.js');
 const fs = require('fs');
-const moment = require('moment'); // Zaman hesaplamaları için (Eğer yüklü değilse: npm i moment)
+const moment = require('moment'); // Zaman hesaplamaları için
 require('moment/locale/tr'); 
 moment.locale('tr');
 
@@ -101,7 +100,7 @@ function profilEmbedOlustur(member) {
 }
 
 // ==========================================
-// SUNUCUYA BİRİ GİRDİĞİNDE (SS'TEKİ SİSTEM)
+// SUNUCUYA BİRİ GİRDİĞİNDE (HOŞ GELDİN EMBED)
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
     await member.roles.add(ROLLER.KAYITSIZ).catch(() => null);
@@ -110,10 +109,7 @@ client.on('guildMemberAdd', async (member) => {
     const logKanal = member.guild.channels.cache.get(KANALLAR.HOZ_GELDIN_LOG);
     
     if (logKanal) {
-        // Hesap Güvenlik Kontrolü (7 günden taze ise Tehlikeli)
         const guvenlik = (Date.now() - member.user.createdTimestamp) < 7 * 24 * 60 * 60 * 1000 ? "⚠️ Şüpheli / Tehlikeli" : "✅ Güvenilir";
-        
-        // Zaman formatlamaları
         const hesapOlusturma = moment(member.user.createdAt).format('dddd, D MMMM YYYY HH:mm');
         const hesapYasi = moment.duration(Date.now() - member.user.createdTimestamp).humanize() + " önce";
 
@@ -137,7 +133,6 @@ client.on('guildMemberAdd', async (member) => {
             .setFooter({ text: `Lütfen hoş geldin deyin ve kayıt edin!` })
             .setTimestamp();
 
-        // Buton Satırları (SS'teki Düzen)
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`btn_uye_${member.id}`).setLabel('Uye').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`btn_futbolcu_${member.id}`).setLabel('Futbolcu').setStyle(ButtonStyle.Primary),
@@ -166,17 +161,10 @@ client.on('interactionCreate', async (interaction) => {
     const [prefix, secim, hedefId] = interaction.customId.split('_');
     if (prefix !== 'btn') return;
 
-    // Yetki Kontrolü
     if (!interaction.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
         return interaction.reply({ content: "❌ Bu butonları sadece **Kayıt Yetkilileri** kullanabilir.", ephemeral: true });
     }
 
-    const hedefUye = await interaction.guild.members.fetch(hedefId).catch(() => null);
-    if (!hedefUye && secim !== 'gecmis') {
-        return interaction.reply({ content: "❌ Kullanıcı sunucudan ayrılmış.", ephemeral: true });
-    }
-
-    // Kayıt Geçmişi Butonu basıldıysa
     if (secim === 'gecmis') {
         profilGereksinim(hedefId);
         const gecmis = data.oyuncular[hedefId]?.kayitGecmisi || [];
@@ -184,7 +172,6 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: `📋 **Kayıt Geçmişi:**\n${gecmis.join('\n')}`, ephemeral: true });
     }
 
-    // Doğrudan Kayıt Butonlarından Biri Basıldıysa Yetkiliye İsim Giriş Komutunu Hatırlatıyoruz
     let ornekIsim = "İsim | SNT | 🇩🇪 | 0";
     if (secim === 'td') ornekIsim = "İsim | TD | 🇹🇷";
     if (secim === 'baskan') ornekIsim = "İsim | Başkan | 👑";
@@ -196,7 +183,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // ==========================================
-// MESAJ KOMUTLARI
+// MESAJ KOMUTLARI (EKSİKSİZ TAMAMI)
 // ==========================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith(PREFIX)) return;
@@ -204,7 +191,27 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // .k Komutu (Butondan sonra ismi girmek için kullanılan komut)
+    // ------------------------------------------
+    // .yardim
+    // ------------------------------------------
+    if (command === 'yardim') {
+        const yardimEmbed = new EmbedBuilder()
+            .setColor('#2F3136')
+            .setTitle('🏆 Efsane Lig RP - Komut Menüsü')
+            .addFields(
+                { name: '📝 Kayıt Komutları', value: '`.k @kullanıcı [İsim]` - Butonlu kayıt panelini tetikler.' },
+                { name: '🏋️ Gelişim Sistemi', value: '`.ant` - Saatte bir antrenman kasıp profilinizi gösterir.\n`.pen` - Saatte bir penaltı idmanı yapar.' },
+                { name: '📊 Değer Komutları', value: '`.degerekle @kullanıcı [Miktar]` - Değer ekler.\n`.degercikar @kullanıcı [Miktar]` - Değer düşer.' },
+                { name: '🏛️ Kulüp Yönetimi', value: '`.takimkur @yönetici [Takım]` | `.takimsil [Takım]` | `.takimliste`' },
+                { name: '📋 Transfer & Kadro', value: '`.oyuncuekle` | `.oyuncucikar` | `.kadro [Takım]`' },
+                { name: '👤 Profil Bilgisi', value: '`.profil [@kullanıcı]` - Oyuncu kartını gösterir.' }
+            ).setTimestamp();
+        return message.reply({ embeds: [yardimEmbed] });
+    }
+
+    // ------------------------------------------
+    // .k KOMUTU
+    // ------------------------------------------
     if (command === 'k') {
         if (!message.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
             return message.reply("❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir.");
@@ -240,7 +247,6 @@ client.on('messageCreate', async (message) => {
             await hedef.roles.remove(ROLLER.KAYITSIZ).catch(() => null);
             await hedef.roles.add(secilenRol).catch(() => null);
 
-            // Veritabanı ve Geçmiş Kayıt Güncellemesi
             profilGereksinim(hedef.id);
             if (!data.oyuncular[hedef.id].kayitGecmisi) data.oyuncular[hedef.id].kayitGecmisi = [];
             data.oyuncular[hedef.id].kayitGecmisi.push(`✍️ Yetkili: ${message.author.tag} - Rol: ${rolIsim} - Tarih: ${moment().format('LTS')}`);
@@ -260,16 +266,178 @@ client.on('messageCreate', async (message) => {
         });
     }
 
-    // .profil komutu
+    // ------------------------------------------
+    // .ant KOMUTU
+    // ------------------------------------------
+    if (command === 'ant') {
+        profilGereksinim(message.author.id);
+        const simdi = Date.now();
+        const beklemeSüresi = data.oyuncular[message.author.id].antSüre + 3600000 - simdi;
+
+        if (beklemeSüresi > 0) {
+            const kalanDk = Math.floor(beklemeSüresi / 60000);
+            return message.reply(`⏳ Dinlenmek için **${kalanDk} dakika** beklemelisin.`);
+        }
+
+        data.oyuncular[message.author.id].ant += 1;
+        if (data.oyuncular[message.author.id].ant > 5) data.oyuncular[message.author.id].ant = 5;
+        
+        data.oyuncular[message.author.id].antSüre = simdi;
+        saveDB();
+
+        const pEmbed = profilEmbedOlustur(message.member);
+        return message.reply({ content: `🏋️ **Antrenman Yapıldı! Güncel Profiliniz:**`, embeds: [pEmbed] });
+    }
+
+    // ------------------------------------------
+    // .pen KOMUTU
+    // ------------------------------------------
+    if (command === 'pen') {
+        profilGereksinim(message.author.id);
+        const simdi = Date.now();
+        const beklemeSüresi = data.oyuncular[message.author.id].penSüre + 3600000 - simdi;
+
+        if (beklemeSüresi > 0) {
+            const kalanDk = Math.floor(beklemeSüresi / 60000);
+            return message.reply(`⏳ Yeniden şut çalışmak için **${kalanDk} dakika** beklemelisin.`);
+        }
+
+        const ihtimaller = ['gol', 'direk', 'kurtaris'];
+        const sonuc = ihtimaller[Math.floor(Math.random() * ihtimaller.length)];
+
+        let bildirimMesaji = "";
+        if (sonuc === 'gol') { data.oyuncular[message.author.id].gol += 1; bildirimMesaji = "⚽ **GOOOL!** Topu filelerle buluşturdun!"; }
+        else if (sonuc === 'direk') { data.oyuncular[message.author.id].direk += 1; bildirimMesaji = "💥 **DİREK!** Top sertçe direğe çarptı!"; }
+        else { data.oyuncular[message.author.id].kurtaris += 1; bildirimMesaji = "🧤 **KURTARIŞ!** Kaleci köşeyi iyi kapattı."; }
+
+        data.oyuncular[message.author.id].penSüre = simdi;
+        saveDB();
+
+        const pEmbed = profilEmbedOlustur(message.member);
+        return message.reply({ content: `${bildirimMesaji}\n\n🔄 **Güncel Profiliniz:**`, embeds: [pEmbed] });
+    }
+
+    // ------------------------------------------
+    // .degerekle & .degercikar KOMUTLARI
+    // ------------------------------------------
+    if (command === 'degerekle' || command === 'degercikar') {
+        if (!message.member.roles.cache.has(ROLLER.DEGER_YETKILISI)) return message.reply("❌ Yetkin yok!");
+        const hedef = message.mentions.members.first();
+        const miktarMetni = args[1];
+
+        if (!hedef || !miktarMetni) return message.reply(`❌ Örnek: \`.${command} @kullanıcı 3m\``);
+
+        profilGereksinim(hedef.id);
+        const miktar = parseDeger(miktarMetni);
+
+        if (command === 'degerekle') data.oyuncular[hedef.id].deger += miktar;
+        else { data.oyuncular[hedef.id].deger -= miktar; if (data.oyuncular[hedef.id].deger < 0) data.oyuncular[hedef.id].deger = 0; }
+        saveDB();
+
+        const yeniFormatliDeger = formatDeger(data.oyuncular[hedef.id].deger);
+
+        let mevcutNick = hedef.displayName;
+        let parcalar = mevcutNick.split('|');
+        if (parcalar.length >= 2) {
+            parcalar[parcalar.length - 1] = ` ${yeniFormatliDeger}`;
+            let yeniNick = parcalar.join('|');
+            await hedef.setNickname(yeniNick).catch(() => null);
+        }
+
+        message.reply(`📊 Değer güncellendi! Yeni Değeri: **${yeniFormatliDeger}**`);
+
+        const bildirimKanal = message.guild.channels.cache.get(KANALLAR.DEGER_LOG);
+        if (bildirimKanal) {
+            bildirimKanal.send(`📢 **Piyasa Değeri Güncellendi!**\n👤 **Oyuncu:** ${hedef}\n💰 **Yeni Piyasa Değeri:** \`${yeniFormatliDeger}\``);
+        }
+    }
+
+    // ------------------------------------------
+    // .profil KOMUTU
+    // ------------------------------------------
     if (command === 'profil') {
         const hedef = message.mentions.members.first() || message.member;
         const pEmbed = profilEmbedOlustur(hedef);
         return message.reply({ embeds: [pEmbed] });
     }
-});
 
-client.once('ready', () => {
-    console.log(`[BOT] ${client.user.tag} başarıyla aktif edildi!`);
-});
+    // ------------------------------------------
+    // .takimkur KOMUTU
+    // ------------------------------------------
+    if (command === 'takimkur') {
+        if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
+        const hedef = message.mentions.members.first();
+        const takimAdi = args.slice(1).join(" ");
+        if (!hedef || !takimAdi) return message.reply("❌ Kullanım: `.takimkur @kullanıcı Fenerbahçe` ");
+        data.takimlar[takimAdi.toLowerCase()] = { isim: takimAdi, sahipId: hedef.id, oyuncular: [] };
+        saveDB();
+        return message.reply(`✅ **${takimAdi}** kulübü kuruldu! Sahibi: ${hedef}`);
+    }
 
-client.login(process.env.TOKEN);
+    // ------------------------------------------
+    // .takimsil KOMUTU
+    // ------------------------------------------
+    if (command === 'takimsil') {
+        if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
+        const takimAdi = args.join(" ");
+        if (data.takimlar[takimAdi.toLowerCase()]) { delete data.takimlar[takimAdi.toLowerCase()]; saveDB(); return message.reply(`🗑️ Takım silindi.`); }
+        return message.reply("❌ Takım bulunamadı.");
+    }
+
+    // ------------------------------------------
+    // .takimliste KOMUTU
+    // ------------------------------------------
+    if (command === 'takimliste') {
+        const tList = Object.values(data.takimlar);
+        if (tList.length === 0) return message.reply("❌ Ligde takım bulunmuyor.");
+        const liste = tList.map((t, index) => `${index + 1}. **${t.isim}** - Sahibi: <@${t.sahipId}>`).join('\n');
+        return message.reply(`🏛️ **Efsane Lig Kulüpleri:**\n\n${liste}`);
+    }
+
+    // ------------------------------------------
+    // .oyuncuekle & .oyuncucikar KOMUTLARI
+    // ------------------------------------------
+    if (command === 'oyuncuekle' || command === 'oyuncucikar') {
+        if (!message.member.roles.cache.has(ROLLER.TEKNIK_DIREKTOR) && !message.member.roles.cache.has(ROLLER.BASKAN)) return message.reply("❌ Kulüp yetkiniz yok!");
+        const hedef = message.mentions.members.first();
+        const takimAdi = args.slice(1).join(" ");
+        const kulüp = data.takimlar[takimAdi?.toLowerCase()];
+
+        if (!hedef || !kulüp) return message.reply(`❌ Kullanım: \`.${command} @oyuncu [Takım Adı]\``);
+        profilGereksinim(hedef.id);
+
+        if (command === 'oyuncuekle') {
+            if (kulüp.oyuncular.includes(hedef.id)) return message.reply("❌ Oyuncu zaten kadroda.");
+            kulüp.oyuncular.push(hedef.id);
+            data.oyuncular[hedef.id].takim = kulüp.isim;
+            message.reply(`✅ Oyuncu **${kulüp.isim}** kadrosuna eklendi.`);
+        } else {
+            kulüp.oyuncular = kulüp.oyuncular.filter(id => id !== hedef.id);
+            data.oyuncular[hedef.id].takim = "Yok";
+            message.reply(`💨 Oyuncu kadrodan çıkarıldı.`);
+        }
+        saveDB();
+    }
+
+    // ------------------------------------------
+    // .kadro KOMUTU
+    // ------------------------------------------
+    if (command === 'kadro') {
+        const takimAdi = args.join(" ");
+        const kulüp = data.takimlar[takimAdi?.toLowerCase()];
+        if (!kulüp) return message.reply("❌ Takım bulunamadı.");
+
+        let toplamKadroDegeri = 0; let oyuncuMetni = "";
+        kulüp.oyuncular.forEach((id, index) => {
+            profilGereksinim(id);
+            toplamKadroDegeri += data.oyuncular[id].deger;
+            oyuncuMetni += `${index + 1}. <@${id}> - Değeri: \`${formatDeger(data.oyuncular[id].deger)}\`\n`;
+        });
+
+        const kadroEmbed = new EmbedBuilder()
+            .setColor('#4682B4')
+            .setTitle(`🏛️ ${kulüp.isim} Kadro Bilgisi`)
+            .setDescription(oyuncuMetni || '_Kadro boş_')
+            .addFields({ name: '📊 Toplam Kadro Değeri', value: `\`${formatDeger(toplamKadroDegeri)}\`` });
+        return message.reply({ embeds: [kadroEmbed] });
+  
