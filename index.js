@@ -1,4 +1,3 @@
-
 const { 
     Client, 
     GatewayIntentBits, 
@@ -106,7 +105,7 @@ function profilEmbedOlustur(member) {
 }
 
 // ==========================================
-// SUNUCUYA BİRİ GİRDİĞİNDE (YENİ DÜZENLEME)
+// SUNUCUYA BİRİ GİRDİĞİNDE
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
     await member.roles.add(ROLLER.KAYITSIZ).catch(() => null);
@@ -121,10 +120,9 @@ client.on('guildMemberAdd', async (member) => {
             .setDescription(`**Merhaba, hoş geldin! Lütfen buraya merhaba yazar mısın?**\n\n👥 **Mevcut Kişi Sayısı:** ${üyeSayisi}\n📝 Yetkililerimiz seninle en kısa sürede ilgilenecektir.`)
             .setTimestamp();
 
-        // Direkt tıklayıp kayıt penceresini açacak "Kayıt Et" butonu
         const hgRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`hg_kayit_${member.id}`) // İçine giren kişinin ID'sini gömdük
+                .setCustomId(`hg_kayit_${member.id}`)
                 .setLabel('Kayıt Et')
                 .setStyle(ButtonStyle.Primary)
         );
@@ -142,25 +140,17 @@ client.once('ready', () => {
 });
 
 // ==========================================
-// MESAJ VE INTERACTION (BUTON) DİNLEYİCİSİ
+// INTERACTION (BUTON) DİNLEYİCİSİ
 // ==========================================
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
-    // Hoş geldin mesajındaki "Kayıt Et" butonuna basıldığında
     if (interaction.customId.startsWith('hg_kayit_')) {
         if (!interaction.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
             return interaction.reply({ content: "❌ Bu butonu sadece **Kayıt Yetkilileri** kullanabilir.", ephemeral: true });
         }
 
         const hedefId = interaction.customId.replace('hg_kayit_', '');
-        const hedefUye = await interaction.guild.members.fetch(hedefId).catch(() => null);
-
-        if (!hedefUye) {
-            return interaction.reply({ content: "❌ Kullanıcı sunucudan ayrılmış.", ephemeral: true });
-        }
-
-        // Yetkiliden isim istemek için modal açmak yerine hızlıca sohbet kanalından komutla girmesini hatırlatıyoruz
         return interaction.reply({ 
             content: `📝 Lütfen sohbet alanına şu komutu yazarak devam edin:\n\`\`\`.k <@${hedefId}> İsim | snt | 🇩🇪 | 0\`\`\``, 
             ephemeral: true 
@@ -168,6 +158,9 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
+// ==========================================
+// MESAJ KOMUTLARI
+// ==========================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
@@ -191,7 +184,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // ------------------------------------------
-    // .k KOMUTU (GÜNCELLENMİŞ KAYIT PANELİ)
+    // .k KOMUTU (DÜZELTİLDİ)
     // ------------------------------------------
     if (command === 'k') {
         if (!message.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
@@ -225,9 +218,9 @@ client.on('messageCreate', async (message) => {
 
             await hedef.setNickname(yeniIsim).catch(() => null);
             await hedef.roles.remove(ROLLER.KAYITSIZ).catch(() => null);
-            await memberRoles = await hedef.roles.add(secilenRol).catch(() => null);
+            await hedef.roles.add(secilenRol).catch(() => null);
 
-            profilGereksinim(hedef.id);
+            profilGereksinement = profilGereksinim(hedef.id);
             const üyeSayisi = message.guild.memberCount;
 
             const basariliLogKanal = message.guild.channels.cache.get(KANALLAR.KAYIT_BAŞARILI_LOG);
@@ -242,7 +235,7 @@ client.on('messageCreate', async (message) => {
         });
     }
 
-    // .ant 
+    // .ant
     if (command === 'ant') {
         profilGereksinim(message.author.id);
         const simdi = Date.now();
@@ -279,7 +272,7 @@ client.on('messageCreate', async (message) => {
 
         let bildirimMesaji = "";
         if (sonuc === 'gol') { data.oyuncular[message.author.id].gol += 1; bildirimMesaji = "⚽ **GOOOL!** Topu filelerle buluşturdun!"; }
-        else if (sonuc === 'direk') { data.oyuncular[message.author.id].direk += 1; bildirimMesaji = "💥 **DİREK!** Top sertçe direğe çarpı!"; }
+        else if (sonuc === 'direk') { data.oyuncular[message.author.id].direk += 1; bildirimMesaji = "💥 **DİREK!** Top sertçe direğe çarptı!"; }
         else { data.oyuncular[message.author.id].kurtaris += 1; bildirimMesaji = "🧤 **KURTARIŞ!** Kaleci köşeyi iyi kapattı."; }
 
         data.oyuncular[message.author.id].penSüre = simdi;
@@ -402,4 +395,4 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
-            
+                                                                                            
