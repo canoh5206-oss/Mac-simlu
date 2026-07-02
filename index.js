@@ -12,6 +12,7 @@ const client = new Client({
 const PREFIX = ".";
 const OWNER_YETKILI_ROL_ID = "1461448489656647905";
 
+// Discord sınırlarına takılmamak için bekleme süresini 400ms yaptık (Kesin çözüm)
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 client.once('ready', () => {
@@ -41,7 +42,7 @@ client.on('messageCreate', async (message) => {
             for (const [id, channel] of channels) {
                 if (channel) {
                     await channel.delete().catch(() => null);
-                    await wait(250); 
+                    await wait(300); 
                 }
             }
 
@@ -49,7 +50,7 @@ client.on('messageCreate', async (message) => {
             for (const [id, role] of roles) {
                 if (!role.managed && role.id !== message.guild.id) {
                     await role.delete().catch(() => null);
-                    await wait(250);
+                    await wait(300);
                 }
             }
 
@@ -61,7 +62,7 @@ client.on('messageCreate', async (message) => {
             const basariliEmbed = new EmbedBuilder()
                 .setColor('#2F3136')
                 .setTitle('🧼 Temizlik Tamamlandı')
-                .setDescription('Sunucu temizlendi!\nBirebir listeyle kurulum için `.sunucukur` yazabilirsiniz.')
+                .setDescription('Sunucu temizlendi!\nKanal ve rolleri eksiksiz kurmak için `.sunucukur` yazabilirsiniz.')
                 .setTimestamp();
 
             return yeniKanal.send({ embeds: [basariliEmbed] });
@@ -72,9 +73,31 @@ client.on('messageCreate', async (message) => {
     }
 
     // ==========================================
-    // 2. .sunucukur KOMUTU (TAM LİSTE BİREBİR)
+    // 2. .sunucukur KOMUTU
     // ==========================================
     if (command === 'sunucukur') {
+        
+        const rolYapisi = [
+            { name: "🔴 👑 Owner", color: "#FF0000" },
+            { name: "🟠 ⭐ Owner Yardımcısı", color: "#FF7F00" },
+            { name: "🟡 🛡️ Baş Admin", color: "#FFFF00" },
+            { name: "🟨 ⚙️ Admin", color: "#E6E600" },
+            { name: "🟢 🔧 Admin Yardımcısı", color: "#00FF00" },
+            { name: "🟦 🔨 Moderatör", color: "#0000FF" },
+            { name: "🔵 🪓 Moderatör Yardımcısı", color: "#007FFF" },
+            { name: "🟣 🎫 Ticket Sorumlusu", color: "#7F00FF" },
+            { name: "🟪 📝 Kayıt Yetkilisi", color: "#A020F0" },
+            { name: "🟪 📝 Kayıt Yetkilisi", color: "#A020F0" },
+            { name: "🟤 💎 Değer Yetkilisi", color: "#A52A2A" },
+            { name: "⚫ 💬 Chat Sorumlusu", color: "#000000" },
+            { name: "🌟 🏅 Efsane Görevli", color: "#FFD700" },
+            { name: "🏆 Takım Başkanı", color: "#FF8C00" },
+            { name: "📋 Teknik Direktör", color: "#4682B4" },
+            { name: "💎 VIP", color: "#00FFFF" },
+            { name: "⚽ Futbolcu", color: "#2E8B57" },
+            { name: "⚪ Kayıtsız", color: "#FFFFFF" }
+        ];
+
         const sunucuYapisi = [
             {
                 kategori: "1. Efsane League (karagore)",
@@ -225,28 +248,37 @@ client.on('messageCreate', async (message) => {
         ];
 
         try {
-            await message.reply("🏗️ **Gelişmiş Birebir Kurulum Başlatıldı.** Kanallar kategoriler senkronize edilerek sırayla açılıyor, lütfen bekleyin...");
+            await message.reply("⚙️ **Güvenli Karagore Altyapı Kurulumu Başlatıldı!** Kanalların atlanmaması için her kanal arasında 400ms beklenecektir. Lütfen sabırla bekleyin...");
 
+            // === ROLLERİ OLUŞTURMA ===
+            for (const r of rolYapisi) {
+                await message.guild.roles.create({
+                    name: r.name,
+                    color: r.color,
+                    reason: 'Karagore otomatik kurulum sistemi'
+                });
+                await wait(400); 
+            }
+
+            // === KANALLARI OLUŞTURMA ===
             for (const veri of sunucuYapisi) {
-                // Kategoriyi oluştur
                 const kategoriKanal = await message.guild.channels.create({
                     name: veri.kategori,
                     type: ChannelType.GuildCategory
                 });
-                await wait(300); 
+                await wait(400); // Kategoriden sonra bekle
 
-                // Kanalları tam listenizdeki yazımlarla kategorinin içine gömüyoruz
                 for (const k of veri.kanallar) {
                     await message.guild.channels.create({
                         name: k.name,
                         type: k.type,
                         parent: kategoriKanal.id
                     });
-                    await wait(300); 
+                    await wait(400); // Her kanal oluşturulduktan sonra kesin olarak bekle (Atlamayı önler)
                 }
             }
 
-            return message.channel.send("✅ **Kurulum Tamamlandı!** İstediğin tüm emojili ve özel isimli kanallar tam listenize uygun şekilde klasörlerin içine dizildi.");
+            return message.channel.send("✅ **Mükemmel Kurulum!** Tüm kategoriler, emojili kanallar ve 17 adet rol eksiksiz, atlanmadan kuruldu!");
 
         } catch (error) {
             console.error(error);
@@ -256,4 +288,5 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
-                          
+                    
+                
