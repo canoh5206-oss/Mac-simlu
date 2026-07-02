@@ -100,10 +100,10 @@ function profilEmbedOlustur(member) {
 }
 
 // ==========================================
-// SUNUCUYA BİRİ GİRDİĞİNDE (HOŞ GELDİN EMBED)
+// SUNUCUYA BİRİ GİRDİĞİNDE
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
-    await member.roles.add(ROLLER.KAYITSIZ).catch(() => null);
+    await member.roles.add(ROLLER.KAYIZSIZ).catch(() => null);
     
     const üyeSayisi = member.guild.memberCount;
     const logKanal = member.guild.channels.cache.get(KANALLAR.HOZ_GELDIN_LOG);
@@ -183,7 +183,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // ==========================================
-// MESAJ KOMUTLARI (EKSİKSİZ TAMAMI)
+// MESAJ KOMUTLARI
 // ==========================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith(PREFIX)) return;
@@ -191,9 +191,7 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // ------------------------------------------
     // .yardim
-    // ------------------------------------------
     if (command === 'yardim') {
         const yardimEmbed = new EmbedBuilder()
             .setColor('#2F3136')
@@ -209,9 +207,7 @@ client.on('messageCreate', async (message) => {
         return message.reply({ embeds: [yardimEmbed] });
     }
 
-    // ------------------------------------------
-    // .k KOMUTU
-    // ------------------------------------------
+    // .k
     if (command === 'k') {
         if (!message.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
             return message.reply("❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir.");
@@ -266,9 +262,7 @@ client.on('messageCreate', async (message) => {
         });
     }
 
-    // ------------------------------------------
-    // .ant KOMUTU
-    // ------------------------------------------
+    // .ant
     if (command === 'ant') {
         profilGereksinim(message.author.id);
         const simdi = Date.now();
@@ -289,9 +283,7 @@ client.on('messageCreate', async (message) => {
         return message.reply({ content: `🏋️ **Antrenman Yapıldı! Güncel Profiliniz:**`, embeds: [pEmbed] });
     }
 
-    // ------------------------------------------
-    // .pen KOMUTU
-    // ------------------------------------------
+    // .pen
     if (command === 'pen') {
         profilGereksinim(message.author.id);
         const simdi = Date.now();
@@ -317,9 +309,7 @@ client.on('messageCreate', async (message) => {
         return message.reply({ content: `${bildirimMesaji}\n\n🔄 **Güncel Profiliniz:**`, embeds: [pEmbed] });
     }
 
-    // ------------------------------------------
-    // .degerekle & .degercikar KOMUTLARI
-    // ------------------------------------------
+    // .degerekle & .degercikar
     if (command === 'degerekle' || command === 'degercikar') {
         if (!message.member.roles.cache.has(ROLLER.DEGER_YETKILISI)) return message.reply("❌ Yetkin yok!");
         const hedef = message.mentions.members.first();
@@ -352,18 +342,14 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // ------------------------------------------
-    // .profil KOMUTU
-    // ------------------------------------------
+    // .profil
     if (command === 'profil') {
         const hedef = message.mentions.members.first() || message.member;
         const pEmbed = profilEmbedOlustur(hedef);
         return message.reply({ embeds: [pEmbed] });
     }
 
-    // ------------------------------------------
-    // .takimkur KOMUTU
-    // ------------------------------------------
+    // .takimkur
     if (command === 'takimkur') {
         if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
         const hedef = message.mentions.members.first();
@@ -374,9 +360,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(`✅ **${takimAdi}** kulübü kuruldu! Sahibi: ${hedef}`);
     }
 
-    // ------------------------------------------
-    // .takimsil KOMUTU
-    // ------------------------------------------
+    // .takimsil
     if (command === 'takimsil') {
         if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
         const takimAdi = args.join(" ");
@@ -384,9 +368,7 @@ client.on('messageCreate', async (message) => {
         return message.reply("❌ Takım bulunamadı.");
     }
 
-    // ------------------------------------------
-    // .takimliste KOMUTU
-    // ------------------------------------------
+    // .takimliste
     if (command === 'takimliste') {
         const tList = Object.values(data.takimlar);
         if (tList.length === 0) return message.reply("❌ Ligde takım bulunmuyor.");
@@ -394,9 +376,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🏛️ **Efsane Lig Kulüpleri:**\n\n${liste}`);
     }
 
-    // ------------------------------------------
-    // .oyuncuekle & .oyuncucikar KOMUTLARI
-    // ------------------------------------------
+    // .oyuncuekle & .oyuncucikar
     if (command === 'oyuncuekle' || command === 'oyuncucikar') {
         if (!message.member.roles.cache.has(ROLLER.TEKNIK_DIREKTOR) && !message.member.roles.cache.has(ROLLER.BASKAN)) return message.reply("❌ Kulüp yetkiniz yok!");
         const hedef = message.mentions.members.first();
@@ -419,9 +399,7 @@ client.on('messageCreate', async (message) => {
         saveDB();
     }
 
-    // ------------------------------------------
-    // .kadro KOMUTU
-    // ------------------------------------------
+    // .kadro
     if (command === 'kadro') {
         const takimAdi = args.join(" ");
         const kulüp = data.takimlar[takimAdi?.toLowerCase()];
@@ -440,4 +418,13 @@ client.on('messageCreate', async (message) => {
             .setDescription(oyuncuMetni || '_Kadro boş_')
             .addFields({ name: '📊 Toplam Kadro Değeri', value: `\`${formatDeger(toplamKadroDegeri)}\`` });
         return message.reply({ embeds: [kadroEmbed] });
+    }
+});
+
+client.once('ready', () => {
+    console.log(`[BOT] ${client.user.tag} başarıyla aktif edildi!`);
+});
+
+client.login(process.env.TOKEN);
+    
   
