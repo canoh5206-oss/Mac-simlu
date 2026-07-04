@@ -66,6 +66,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-client.login('TOKENINI_BURAYA_YAZ');
+client.login('BURAYA_YENİ_KOPYALADIĞIN_TOKENİ_YAPIŞTIR');
+
 
                    
