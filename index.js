@@ -1,429 +1,286 @@
-const { 
-    Client, 
-    GatewayIntentBits, 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle,
-    ComponentType
-} = require('discord.js');
-const fs = require('fs');
-const moment = require('moment');
-require('moment/locale/tr'); 
-moment.locale('tr');
+import discord
+from discord.ext import commands
+import json
+import os
+import random
+import time
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
-    ]
-});
+# Veri tabanı dosyaları
+DATA_FILE = "banka.json"
+INVITE_FILE = "davet.json"
 
-const PREFIX = ".";
+def veri_yukle(dosya):
+    if not os.path.exists(dosya):
+        return {}
+    with open(dosya, "r", encoding="utf-8") as f:
+        try: return json.load(f)
+        except json.JSONDecodeError: return {}
 
-// ==========================================
-// ID TANIMLAMALARI
-// ==========================================
-const ROLLER = {
-    KAYITSIZ: "1522283479726031068",
-    FUTBOLCU: "1522283476517257376",
-    TEKNIK_DIREKTOR: "1522283471219982528",
-    BASKAN: "1522283468711788697",
-    KAYIT_YETKILISI: "1522283453721219072",
-    DEGER_YETKILISI: "1522283459056373791",
-    UST_YETKILI: "1461448489656647905"
-};
+def veri_kaydet(dosya, data):
+    with open(dosya, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-const KANALLAR = {
-    HOZ_GELDIN_LOG: "1522283489133858837",
-    KAYIT_BAŞARILI_LOG: "1522283544683090133",
-    DEGER_LOG: "1522283586756280340"
-};
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.invites = True
+bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
 
-// ==========================================
-// YEREL JSON VERİTABANI SİSTEMİ
-// ==========================================
-let data = { oyuncular: {}, takimlar: {} };
-if (fs.existsSync('./database.json')) {
-    try {
-        data = JSON.parse(fs.readFileSync('./database.json', 'utf8'));
-    } catch (e) {
-        console.error("Veritabanı okuma hatası, sıfırlanıyor...", e);
-    }
-}
+# Davet takibi için geçici hafıza
+sunucu_davetleri = {}
 
-function saveDB() {
-    fs.writeFileSync('./database.json', JSON.stringify(data, null, 2));
-}
+def bakiye_kontrol(user_id, data):
+    uid = str(user_id)
+    if uid not in data:
+        data[uid] = {"cash": 0, "butce": 0, "ant": 0, "last_pen": 0, "last_ant": 0}
+    for key in ["cash", "butce", "ant", "last_pen", "last_ant"]:
+        if key not in data[uid]: data[uid][key] = 0
+    return data
 
-function profilGereksinim(userId) {
-    if (!data.oyuncular[userId]) {
-        data.oyuncular[userId] = {
-            ant: 0, gol: 0, direk: 0, kurtaris: 0, deger: 0, takim: "Yok", antSüre: 0, penSüre: 0, kayitGecmisi: []
-        };
-        saveDB();
-    }
-}
+def davet_kontrol(user_id, data):
+    uid = str(user_id)
+    if uid not in data:
+        data[uid] = {"gercek": 0, "fake": 0, "ayrildi": 0, "tekrar": 0, "davet eden": None}
+    return data
 
-function formatDeger(sayi) {
-    if (sayi >= 1000000) return (sayi / 1000000).toFixed(1).replace('.0', '') + 'm';
-    if (sayi >= 1000) return (sayi / 1000).toFixed(1).replace('.0', '') + 'k';
-    return sayi + ' değer';
-}
+@bot.event
+async def on_ready():
+    print(f"⚡ Bot giriş yaptı: {bot.user.name}")
+    for guild in bot.guilds:
+        try: sunucu_davetleri[guild.id] = await guild.invites()
+        except: pass
 
-function parseDeger(metin) {
-    let temiz = metin.toLowerCase().trim();
-    if (temiz.endsWith('m')) return parseFloat(temiz.replace('m', '')) * 1000000;
-    if (temiz.endsWith('k')) return parseFloat(temiz.replace('k', '')) * 1000;
-    return parseFloat(temiz) || 0;
-}
+@bot.event
+async def on_member_join(member):
+    data = veri_yukle(INVITE_FILE)
+    guild = member.guild
+    eski_davetler = sunucu_davetleri.get(guild.id, [])
+    try: yeni_davetler = await guild.invites()
+    except: return
+    sunucu_davetleri[guild.id] = yeni_davetler
 
-function profilEmbedOlustur(member) {
-    profilGereksinim(member.id);
-    const p = data.oyuncular[member.id];
-    return new EmbedBuilder()
-        .setColor('#2E8B57')
-        .setTitle(`⚽ Oyuncu Profil Kartı`)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .addFields(
-            { name: '📋 Takma Ad', value: `${member.displayName}` },
-            { name: '🏛️ Kulübü', value: `\`${p.takim}\``, inline: true },
-            { name: '💰 Piyasa Değeri', value: `\`${formatDeger(p.deger)}\``, inline: true },
-            { name: '🏋️ Antrenman', value: `\`${p.ant}/5\``, inline: true },
-            { name: '⚽ Atılan Gol', value: `\`${p.gol}\``, inline: true },
-            { name: '💥 Direk', value: `\`${p.direk}\``, inline: true },
-            { name: '🧤 Kurtarış', value: `\`${p.kurtaris}\``, inline: true }
-        )
-        .setTimestamp();
-}
-
-// ==========================================
-// SUNUCUYA BİRİ GİRDİĞİNDE
-// ==========================================
-client.on('guildMemberAdd', async (member) => {
-    await member.roles.add(ROLLER.KAYITSIZ).catch(() => null);
+    davet_eden = None
+    for old_inv in eski_davetler:
+        for new_inv in yeni_davetler:
+            if old_inv.code == new_inv.code and new_inv.uses > old_inv.uses:
+                davet_eden = old_inv.inviter
+                break
     
-    const üyeSayisi = member.guild.memberCount;
-    const logKanal = member.guild.channels.cache.get(KANALLAR.HOZ_GELDIN_LOG);
-    
-    if (logKanal) {
-        const guvenlik = (Date.now() - member.user.createdTimestamp) < 7 * 24 * 60 * 60 * 1000 ? "⚠️ Şüpheli / Tehlikeli" : "✅ Güvenilir";
-        const hesapOlusturma = moment(member.user.createdAt).format('dddd, D MMMM YYYY HH:mm');
-        const hesapYasi = moment.duration(Date.now() - member.user.createdTimestamp).humanize() + " önce";
-
-        const hgEmbed = new EmbedBuilder()
-            .setColor('#2f3136')
-            .setAuthor({ name: `Yeni Üye - Kayıt Sistemi`, iconURL: member.guild.iconURL() })
-            .setTitle(`👤 ${member.user.username} — @...`)
-            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-            .setDescription(
-                `👤 **Kullanıcı:** ${member} (${member.id})\n` +
-                `🏆 **Sunucu Sırası:** #${üyeSayisi}\n` +
-                `💾 **Toplam Üye:** ${üyeSayisi}\n\n` +
-                `🛡️ **Güvenlik:** ${guvenlik}\n` +
-                `🌱 **Hesap Yaşı:** ${hesapYasi}\n` +
-                `🌐 **Hesap Oluşum:** ${hesapOlusturma}\n` +
-                `📌 **Katılma:** ${moment(member.joinedAt).format('dddd, D MMMM YYYY HH:mm')}\n\n` +
-                `🤖 **Bot mu?:** ${member.user.bot ? "Evet 🤖" : "Hayır 👤"}\n` +
-                `💬 **Kullanıcı Adı:** ${member.user.username}\n` +
-                `📁 **ID:** ${member.id}`
-            )
-            .setFooter({ text: `Lütfen hoş geldin deyin ve kayıt edin!` })
-            .setTimestamp();
-
-        const row1 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`btn_uye_${member.id}`).setLabel('Uye').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`btn_futbolcu_${member.id}`).setLabel('Futbolcu').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`btn_td_${member.id}`).setLabel('Teknik Direktor').setStyle(ButtonStyle.Primary)
-        );
-
-        const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`btn_baskan_${member.id}`).setLabel('Baskan').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`btn_gecmis_${member.id}`).setLabel('Kayıt Geçmişi').setStyle(ButtonStyle.Secondary)
-        );
-
-        logKanal.send({ 
-            content: `<@&${ROLLER.KAYIT_YETKILISI}>`, 
-            embeds: [hgEmbed],
-            components: [row1, row2]
-        });
-    }
-});
-
-// ==========================================
-// INTERACTION (BUTON) DİNLEYİCİSİ
-// ==========================================
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-
-    const [prefix, secim, hedefId] = interaction.customId.split('_');
-    if (prefix !== 'btn') return;
-
-    if (!interaction.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
-        return interaction.reply({ content: "❌ Bu butonları sadece **Kayıt Yetkilileri** kullanabilir.", ephemeral: true });
-    }
-
-    if (secim === 'gecmis') {
-        profilGereksinim(hedefId);
-        const gecmis = data.oyuncular[hedefId]?.kayitGecmisi || [];
-        if (gecmis.length === 0) return interaction.reply({ content: `📝 <@${hedefId}> kullanıcısının geçmiş kayıt verisi bulunamadı.`, ephemeral: true });
-        return interaction.reply({ content: `📋 **Kayıt Geçmişi:**\n${gecmis.join('\n')}`, ephemeral: true });
-    }
-
-    let ornekIsim = "İsim | SNT | 🇩🇪 | 0";
-    if (secim === 'td') ornekIsim = "İsim | TD | 🇹🇷";
-    if (secim === 'baskan') ornekIsim = "İsim | Başkan | 👑";
-
-    return interaction.reply({
-        content: `📝 Lütfen aşağıdaki hazır komutu kopyalayıp **sohbet kanalına** yapıştırın, ismi düzenleyip gönderin:\n\n\`\`\`.k <@${hedefId}> ${ornekIsim}\`\`\``,
-        ephemeral: true
-    });
-});
-
-// ==========================================
-// MESAJ KOMUTLARI
-// ==========================================
-client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
-
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
-
-    // .yardim
-    if (command === 'yardim') {
-        const yardimEmbed = new EmbedBuilder()
-            .setColor('#2F3136')
-            .setTitle('🏆 Efsane Lig RP - Komut Menüsü')
-            .addFields(
-                { name: '📝 Kayıt Komutları', value: '`.k @kullanıcı [İsim]` - Butonlu kayıt panelini tetikler.' },
-                { name: '🏋️ Gelişim Sistemi', value: '`.ant` - Saatte bir antrenman kasıp profilinizi gösterir.\n`.pen` - Saatte bir penaltı idmanı yapar.' },
-                { name: '📊 Değer Komutları', value: '`.degerekle @kullanıcı [Miktar]` - Değer ekler.\n`.degercikar @kullanıcı [Miktar]` - Değer düşer.' },
-                { name: '🏛️ Kulüp Yönetimi', value: '`.takimkur @yönetici [Takım]` | `.takimsil [Takım]` | `.takimliste`' },
-                { name: '📋 Transfer & Kadro', value: '`.oyuncuekle` | `.oyuncucikar` | `.kadro [Takım]`' },
-                { name: '👤 Profil Bilgisi', value: '`.profil [@kullanıcı]` - Oyuncu kartını gösterir.' }
-            ).setTimestamp();
-        return message.reply({ embeds: [yardimEmbed] });
-    }
-
-    // .k
-    if (command === 'k') {
-        if (!message.member.roles.cache.has(ROLLER.KAYIT_YETKILISI)) {
-            return message.reply("❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir.");
-        }
-
-        const hedef = message.mentions.members.first();
-        const yeniIsim = args.slice(1).join(" ");
-
-        if (!hedef || !yeniIsim) {
-            return message.reply("❌ Yanlış Kullanım! Örnek: `.k @kullanıcı Osimhen | snt | 🇩🇪 | 0` ");
-        }
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('kayit_futbolcu').setLabel('Futbolcu').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId('kayit_td').setLabel('Teknik Direktör').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('kayit_baskan').setLabel('Başkan').setStyle(ButtonStyle.Success)
-        );
-
-        const msg = await message.reply({
-            content: `📝 ${hedef} kullanıcısı için kaydı tamamlayacak son rolü seçiniz:`,
-            components: [row]
-        });
-
-        const filter = i => i.user.id === message.author.id;
-        const collector = msg.createMessageComponentCollector({ filter, componentType: ComponentType.Button, time: 30000 });
-
-        collector.on('collect', async i => {
-            await i.deferUpdate();
-            let secilenRol = i.customId === 'kayit_futbolcu' ? ROLLER.FUTBOLCU : (i.customId === 'kayit_td' ? ROLLER.TEKNIK_DIREKTOR : ROLLER.BASKAN);
-            let rolIsim = i.customId === 'kayit_futbolcu' ? 'Futbolcu' : (i.customId === 'kayit_td' ? 'Teknik Direktör' : 'Başkan');
-
-            await hedef.setNickname(yeniIsim).catch(() => null);
-            await hedef.roles.remove(ROLLER.KAYITSIZ).catch(() => null);
-            await hedef.roles.add(secilenRol).catch(() => null);
-
-            profilGereksinim(hedef.id);
-            if (!data.oyuncular[hedef.id].kayitGecmisi) data.oyuncular[hedef.id].kayitGecmisi = [];
-            data.oyuncular[hedef.id].kayitGecmisi.push(`✍️ Yetkili: ${message.author.tag} - Rol: ${rolIsim} - Tarih: ${moment().format('LTS')}`);
-            saveDB();
-
-            const üyeSayisi = message.guild.memberCount;
-            const basariliLogKanal = message.guild.channels.cache.get(KANALLAR.KAYIT_BAŞARILI_LOG);
-            
-            if (basariliLogKanal) {
-                const onayEmbed = profilEmbedOlustur(hedef);
-                onayEmbed.setDescription(`🎉 **Kayıt başarıyla tamamlandı!**\n\n👤 **Kişi Sayısı:** Sunucumuz şu an **${üyeSayisi}** kişi.`);
-                basariliLogKanal.send({ content: `Kayıt edildi hoş geldiniz <@${hedef.id}>`, embeds: [onayEmbed] });
-            }
-
-            await msg.edit({ content: `✅ ${hedef} kullanıcısının kaydı başarıyla tamamlandı ve profili oluşturuldu!`, components: [] });
-            collector.stop();
-        });
-    }
-
-    // .ant
-    if (command === 'ant') {
-        profilGereksinim(message.author.id);
-        const simdi = Date.now();
-        const beklemeSüresi = data.oyuncular[message.author.id].antSüre + 3600000 - simdi;
-
-        if (beklemeSüresi > 0) {
-            const kalanDk = Math.floor(beklemeSüresi / 60000);
-            return message.reply(`⏳ Dinlenmek için **${kalanDk} dakika** beklemelisin.`);
-        }
-
-        data.oyuncular[message.author.id].ant += 1;
-        if (data.oyuncular[message.author.id].ant > 5) data.oyuncular[message.author.id].ant = 5;
+    if davet_eden and not davet_eden.bot:
+        mid = str(member.id)
+        data = davet_kontrol(davet_eden.id, data)
         
-        data.oyuncular[message.author.id].antSüre = simdi;
-        saveDB();
+        # Fake Kontrolü (7 günden taze hesaplar fake sayılır)
+        if (discord.utils.utcnow() - member.created_at).days < 7:
+            data[str(davet_eden.id)]["fake"] += 1
+        else:
+            if mid in data and data[mid].get("davet eden") == str(davet_eden.id):
+                data[str(davet_eden.id)]["tekrar"] += 1
+                data[str(davet_eden.id)]["gercek"] += 1
+            else:
+                data[str(davet_eden.id)]["gercek"] += 1
+        
+        data[mid] = davet_kontrol(member.id, data)
+        data[mid]["davet eden"] = str(davet_eden.id)
+        veri_kaydet(INVITE_FILE, data)
 
-        const pEmbed = profilEmbedOlustur(message.member);
-        return message.reply({ content: `🏋️ **Antrenman Yapıldı! Güncel Profiliniz:**`, embeds: [pEmbed] });
-    }
+@bot.event
+async def on_member_remove(member):
+    data = veri_yukle(INVITE_FILE)
+    mid = str(member.id)
+    if mid in data and data[mid].get("davet eden"):
+        d_eden_id = data[mid]["davet eden"]
+        if d_eden_id in data:
+            data[d_eden_id]["ayrildi"] += 1
+            if data[d_eden_id]["gercek"] > 0:
+                data[d_eden_id]["gercek"] -= 1
+            veri_kaydet(INVITE_FILE, data)
 
-    // .pen
-    if (command === 'pen') {
-        profilGereksinim(message.author.id);
-        const simdi = Date.now();
-        const beklemeSüresi = data.oyuncular[message.author.id].penSüre + 3600000 - simdi;
+# --- EKONOMİ KOMUTLARI ---
+@bot.command(name="bal")
+async def bal(ctx):
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(ctx.author.id, data)
+    await ctx.send(f"🪙 **{ctx.author.display_name}**, bakiye: **{data[str(ctx.author.id)]['cash']:,}** cash.")
 
-        if (beklemeSüresi > 0) {
-            const kalanDk = Math.floor(beklemeSüresi / 60000);
-            return message.reply(`⏳ Yeniden şut çalışmak için **${kalanDk} dakika** beklemelisin.`);
-        }
+@bot.command(name="send")
+async def send(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar or miktar <= 0 or member.id == ctx.author.id:
+        return await ctx.send("❌ Hatalı kullanım! Örnek: `.send @üye 500000`")
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(ctx.author.id, data)
+    data = bakiye_kontrol(member.id, data)
+    if data[str(ctx.author.id)]["cash"] < miktar:
+        return await ctx.send("❌ Bakiyeniz yetersiz!")
+    data[str(ctx.author.id)]["cash"] -= miktar
+    data[str(member.id)]["cash"] += miktar
+    veri_kaydet(DATA_FILE, data)
+    await ctx.send(f"✅ **{member.display_name}** kullanıcısına **{miktar:,}** cash gönderildi!")
 
-        const ihtimaller = ['gol', 'direk', 'kurtaris'];
-        const sonuc = ihtimaller[Math.floor(Math.random() * ihtimaller.length)];
+@bot.command(name="paraver")
+@commands.has_permissions(administrator=True)
+async def paraver(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar: return await ctx.send("❌ Örnek: `.paraver @üye 1000000`")
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(member.id, data)
+    data[str(member.id)]["cash"] += miktar
+    veri_kaydet(DATA_FILE, data)
+    await ctx.send(f"👑 **{member.display_name}** kullanıcısına **{miktar:,}** cash eklendi!")
 
-        let bildirimMesaji = "";
-        if (sonuc === 'gol') { data.oyuncular[message.author.id].gol += 1; bildirimMesaji = "⚽ **GOOOL!** Topu filelerle buluşturdun!"; }
-        else if (sonuc === 'direk') { data.oyuncular[message.author.id].direk += 1; bildirimMesaji = "💥 **DİREK!** Top sertçe direğe çarptı!"; }
-        else { data.oyuncular[message.author.id].kurtaris += 1; bildirimMesaji = "🧤 **KURTARIŞ!** Kaleci köşeyi iyi kapattı."; }
+@bot.command(name="parasil")
+@commands.has_permissions(administrator=True)
+async def parasil(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar: return await ctx.send("❌ Örnek: `.parasil @üye 500000`")
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(member.id, data)
+    data[str(member.id)]["cash"] = max(0, data[str(member.id)]["cash"] - miktar)
+    veri_kaydet(DATA_FILE, data)
+    await ctx.send(f"📉 **{member.display_name}** hesabından **{miktar:,}** cash silindi!")
 
-        data.oyuncular[message.author.id].penSüre = simdi;
-        saveDB();
+@bot.group(name="bütçe", aliases=["butce"], invoke_without_command=True)
+async def butce(ctx):
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(ctx.author.id, data)
+    await ctx.send(f"📊 **{ctx.author.display_name}**, mevcut kulüp bütçeniz: **{data[str(ctx.author.id)]['butce']:,}** bütçe.")
 
-        const pEmbed = profilEmbedOlustur(message.member);
-        return message.reply({ content: `${bildirimMesaji}\n\n🔄 **Güncel Profiliniz:**`, embeds: [pEmbed] });
-    }
+@butce.command(name="sil")
+@commands.has_permissions(administrator=True)
+async def butce_sil(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar: return await ctx.send("❌ Örnek: `.bütçe sil @üye 500000`")
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(member.id, data)
+    data[str(member.id)]["butce"] = max(0, data[str(member.id)]["butce"] - miktar)
+    veri_kaydet(DATA_FILE, data)
+    await ctx.send(f"📉 **{member.display_name}** bütçesinden **{miktar:,}** silindi!")
 
-    // .degerekle & .degercikar
-    if (command === 'degerekle' || command === 'degercikar') {
-        if (!message.member.roles.cache.has(ROLLER.DEGER_YETKILISI)) return message.reply("❌ Yetkin yok!");
-        const hedef = message.mentions.members.first();
-        const miktarMetni = args[1];
+@butce.command(name="ekle")
+@commands.has_permissions(administrator=True)
+async def butce_ekle(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar: return await ctx.send("❌ Örnek: `.bütçe ekle @üye 500000`")
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(member.id, data)
+    data[str(member.id)]["butce"] += miktar
+    veri_kaydet(DATA_FILE, data)
+    await ctx.send(f"📈 **{member.display_name}** bütçesine **{miktar:,}** eklendi!")
 
-        if (!hedef || !miktarMetni) return message.reply(`❌ Örnek: \`.${command} @kullanıcı 3m\``);
+# --- OYUN & SAATLİK KOMUTLAR (.pen ve .ant) ---
+@bot.command(name="pen")
+async def pen(ctx):
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(ctx.author.id, data)
+    su an = int(time.time())
+    
+    if su_an - data[str(ctx.author.id)]["last_pen"] < 3600:
+        kalan = 3600 - (su_an - data[str(ctx.author.id)]["last_pen"])
+        return await ctx.send(f"⏱️ Bu komut saatte 1 kez kullanılabilir! Kalan süre: **{kalan//60}** dakika.")
+        
+    sonuclar = ["⚽ GOL! Muhteşem bir vuruş!", "🥅 DİREK! Top direkten döndü!", "🏟️ AUT! Top dışarı çıktı!", "🧤 KALECİ! Kaleci köşeden çıkardı!"]
+    secilen = random.choice(sonuclar)
+    
+    data[str(ctx.author.id)]["last_pen"] = su_an
+    if "GOL" in secilen:
+        data[str(ctx.author.id)]["cash"] += 50000  # Gol ödülü (İstersen değiştir)
+        secilen += " (+50,000 cash)"
+        
+    veri_kaydet(DATA_FILE, data)
+    await ctx.send(f"⚽ **{ctx.author.display_name}** penaltı kullandı...\n👉 **{secilen}**")
 
-        profilGereksinim(hedef.id);
-        const miktar = parseDeger(miktarMetni);
+@bot.command(name="ant")
+async def ant(ctx):
+    data = veri_yukle(DATA_FILE)
+    data = bakiye_kontrol(ctx.author.id, data)
+    su_an = int(time.time())
+    
+    if su_an - data[str(ctx.author.id)]["last_ant"] < 3600:
+        kalan = 3600 - (su_an - data[str(ctx.author.id)]["last_ant"])
+        return await ctx.send(f"⏱️ Antrenman saatte 1 kez yapılabilir! Kalan süre: **{kalan//60}** dakika.")
+        
+    data[str(ctx.author.id)]["last_ant"] = su_an
+    data[str(ctx.author.id)]["ant"] += 1
+    
+    mevcut_ant = data[str(ctx.author.id)]["ant"]
+    
+    if mevcut_ant >= 10:
+        data[str(ctx.author.id)]["ant"] = 0
+        data[str(ctx.author.id)]["cash"] += 200000  # 10/10 olunca verilecek ödül
+        await ctx.send(f"🏃‍♂️ **{ctx.author.display_name}**, 10/10 antrenmanı tamamladın ve bittikten sonra sıfırlandı! 🎉 **+200,000 cash** kazandın!")
+    else:
+        await ctx.send(f"🏃‍♂️ **{ctx.author.display_name}**, antrenman yapıldı! İlerleme: **{mevcut_ant}/10**")
+        
+    veri_kaydet(DATA_FILE, data)
 
-        if (command === 'degerekle') data.oyuncular[hedef.id].deger += miktar;
-        else { data.oyuncular[hedef.id].deger -= miktar; if (data.oyuncular[hedef.id].deger < 0) data.oyuncular[hedef.id].deger = 0; }
-        saveDB();
+# --- DAVET SİSTEMLERİ (.davet, .davetsil, .davetal, .davetsirala) ---
+@bot.command(name="davet")
+async def davet(ctx, member: discord.Member = None):
+    hedef = member or ctx.author
+    data = veri_yukle(INVITE_FILE)
+    data = davet_kontrol(hedef.id, data)
+    
+    u_data = data[str(hedef.id)]
+    embed = discord.Embed(title=f"✉️ {hedef.display_name} Davet İstatistikleri", color=discord.Color.blue())
+    embed.add_field(name="✅ Gerçek", value=f"**{u_data['gercek']}**", inline=True)
+    embed.add_field(name="❌ Fake", value=f"**{u_data['fake']}**", inline=True)
+    embed.add_field(name="🚪 Ayrıldı", value=f"**{u_data['ayrildi']}**", inline=True)
+    embed.add_field(name="🔄 Yeniden Girdi", value=f"**{u_data['tekrar']}**", inline=True)
+    await ctx.send(embed=embed)
 
-        const yeniFormatliDeger = formatDeger(data.oyuncular[hedef.id].deger);
+@bot.command(name="davetsil")
+@commands.has_permissions(administrator=True)
+async def davetsil(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar: return await ctx.send("❌ Örnek: `.davetsil @üye 5`")
+    data = veri_yukle(INVITE_FILE)
+    data = davet_kontrol(member.id, data)
+    data[str(member.id)]["gercek"] = max(0, data[str(member.id)]["gercek"] - miktar)
+    veri_kaydet(INVITE_FILE, data)
+    await ctx.send(f"✅ **{member.display_name}** kullanıcısının gerçek davet sayısından **{miktar}** adet silindi.")
 
-        let mevcutNick = hedef.displayName;
-        let parcalar = mevcutNick.split('|');
-        if (parcalar.length >= 2) {
-            parcalar[parcalar.length - 1] = ` ${yeniFormatliDeger}`;
-            let yeniNick = parcalar.join('|');
-            await hedef.setNickname(yeniNick).catch(() => null);
-        }
+@bot.command(name="davetal")
+@commands.has_permissions(administrator=True)
+async def davetal(ctx, member: discord.Member = None, miktar: int = None):
+    if not member or not miktar: return await ctx.send("❌ Örnek: `.davetal @üye 5`")
+    data = veri_yukle(INVITE_FILE)
+    data = davet_kontrol(member.id, data)
+    data[str(member.id)]["gercek"] += miktar
+    veri_kaydet(INVITE_FILE, data)
+    await ctx.send(f"✅ **{member.display_name}** kullanıcısına **{miktar}** adet gerçek davet eklendi.")
 
-        message.reply(`📊 Değer güncellendi! Yeni Değeri: **${yeniFormatliDeger}**`);
-
-        const bildirimKanal = message.guild.channels.cache.get(KANALLAR.DEGER_LOG);
-        if (bildirimKanal) {
-            bildirimKanal.send(`📢 **Piyasa Değeri Güncellendi!**\n👤 **Oyuncu:** ${hedef}\n💰 **Yeni Piyasa Değeri:** \`${yeniFormatliDeger}\``);
-        }
-    }
-
-    // .profil
-    if (command === 'profil') {
-        const hedef = message.mentions.members.first() || message.member;
-        const pEmbed = profilEmbedOlustur(hedef);
-        return message.reply({ embeds: [pEmbed] });
-    }
-
-    // .takimkur
-    if (command === 'takimkur') {
-        if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
-        const hedef = message.mentions.members.first();
-        const takimAdi = args.slice(1).join(" ");
-        if (!hedef || !takimAdi) return message.reply("❌ Kullanım: `.takimkur @kullanıcı Fenerbahçe` ");
-        data.takimlar[takimAdi.toLowerCase()] = { isim: takimAdi, sahipId: hedef.id, oyuncular: [] };
-        saveDB();
-        return message.reply(`✅ **${takimAdi}** kulübü kuruldu! Sahibi: ${hedef}`);
-    }
-
-    // .takimsil
-    if (command === 'takimsil') {
-        if (!message.member.roles.cache.has(ROLLER.UST_YETKILI)) return message.reply("❌ Yetkin yok!");
-        const takimAdi = args.join(" ");
-        if (data.takimlar[takimAdi.toLowerCase()]) { delete data.takimlar[takimAdi.toLowerCase()]; saveDB(); return message.reply(`🗑️ Takım silindi.`); }
-        return message.reply("❌ Takım bulunamadı.");
-    }
-
-    // .takimliste
-    if (command === 'takimliste') {
-        const tList = Object.values(data.takimlar);
-        if (tList.length === 0) return message.reply("❌ Ligde takım bulunmuyor.");
-        const liste = tList.map((t, index) => `${index + 1}. **${t.isim}** - Sahibi: <@${t.sahipId}>`).join('\n');
-        return message.reply(`🏛️ **Efsane Lig Kulüpleri:**\n\n${liste}`);
-    }
-
-    // .oyuncuekle & .oyuncucikar
-    if (command === 'oyuncuekle' || command === 'oyuncucikar') {
-        if (!message.member.roles.cache.has(ROLLER.TEKNIK_DIREKTOR) && !message.member.roles.cache.has(ROLLER.BASKAN)) return message.reply("❌ Kulüp yetkiniz yok!");
-        const hedef = message.mentions.members.first();
-        const takimAdi = args.slice(1).join(" ");
-        const kulüp = data.takimlar[takimAdi?.toLowerCase()];
-
-        if (!hedef || !kulüp) return message.reply(`❌ Kullanım: \`.${command} @oyuncu [Takım Adı]\``);
-        profilGereksinim(hedef.id);
-
-        if (command === 'oyuncuekle') {
-            if (kulüp.oyuncular.includes(hedef.id)) return message.reply("❌ Oyuncu zaten kadroda.");
-            kulüp.oyuncular.push(hedef.id);
-            data.oyuncular[hedef.id].takim = kulüp.isim;
-            message.reply(`✅ Oyuncu **${kulüp.isim}** kadrosuna eklendi.`);
-        } else {
-            kulüp.oyuncular = kulüp.oyuncular.filter(id => id !== hedef.id);
-            data.oyuncular[hedef.id].takim = "Yok";
-            message.reply(`💨 Oyuncu kadrodan çıkarıldı.`);
-        }
-        saveDB();
-    }
-
-    // .kadro
-    if (command === 'kadro') {
-        const takimAdi = args.join(" ");
-        const kulüp = data.takimlar[takimAdi?.toLowerCase()];
-        if (!kulüp) return message.reply("❌ Takım bulunamadı.");
-
-        let toplamKadroDegeri = 0; let oyuncuMetni = "";
-        kulüp.oyuncular.forEach((id, index) => {
-            profilGereksinim(id);
-            toplamKadroDegeri += data.oyuncular[id].deger;
-            oyuncuMetni += `${index + 1}. <@${id}> - Değeri: \`${formatDeger(data.oyuncular[id].deger)}\`\n`;
-        });
-
-        const kadroEmbed = new EmbedBuilder()
-            .setColor('#4682B4')
-            .setTitle(`🏛️ ${kulüp.isim} Kadro Bilgisi`)
-            .setDescription(oyuncuMetni || '_Kadro boş_')
-            .addFields({ name: '📊 Toplam Kadro Değeri', value: `\`${formatDeger(toplamKadroDegeri)}\`` });
-        return message.reply({ embeds: [kadroEmbed] });
-    }
-});
-
-client.once('ready', () => {
-    console.log(`[BOT] ${client.user.tag} başarıyla aktif edildi!`);
-});
-
-client.login(process.env.TOKEN);
+@bot.command(name="davetsırala", aliases=["davetsirala"])
+async def davetsirala(ctx):
+    data = veri_yukle(INVITE_FILE)
+    # Sadece gerçek daveti 0'dan büyük olanları ve sunucuda olanları sırala
+    sirali = sorted(data.items(), key=lambda item: item[1].get("gercek", 0), reverse=True)
+    
+    embed = discord.Embed(title=f"🏆 {ctx.guild.name} Davet Sıralaması (İlk 10)", color=discord.Color.gold())
+    
+    sayac = 0
+    for user_id, info in sirali:
+        if sayac >= 10: break
+        member = ctx.guild.get_member(int(user_id))
+        if member:
+            sayac += 1
+            embed.add_field(name=f"{sayac}. {member.display_name}", value=f"Gerçek: **{info['gercek']}** | Fake: {info['fake']} | Ayrılan: {info['ayrildi']}", inline=False)
             
+    if sayac == 0:
+        embed.description = "Henüz davet verisi bulunmuyor."
+        
+    await ctx.send(embed=embed)
+
+# --- YARDIM ---
+@bot.command(name="yardım", aliases=["yardim"])
+async def yardim(ctx):
+    embed = discord.Embed(title="💰 Ekonomi & Lig Sistemi Komutları", color=discord.Color.green())
+    embed.add_field(name="⚽ Lig & Eğlence", value="`.pen` -> Penaltı atarsın (Saatlik)\n`.ant` -> Antrenman yaparsın (10/1 aşamalı, saatlik)", inline=False)
+    embed.add_field(name="✉️ Davet Sistemi", value="`.davet [@üye]` -> Davet istatistiklerini listeler\n`.davetsirala` -> Sunucu ilk 10 davet liderini listeler", inline=False)
+    embed.add_field(name="🪙 Ekonomi", value="`.bal` -> Nakit gösterir\n`.send @üye [miktar]` -> Para transferi\n`.bütçe` -> Kulüp bütçesini gösterir", inline=False)
+    
+    if ctx.author.guild_permissions.administrator:
+        embed.add_field(name="👑 Owner / Yönetici Yetkileri", value="`.paraver` / `.parasil` -> Cash yönetimi\n`.bütçe ekle` / `.bütçe sil` -> Bütçe yönetimi\n`.davetal` / `.davetsil` -> Davet ekleme/silme", inline=False)
+    await ctx.send(embed=embed)
+
+@yetki_hatasi.error  # Genel yetki kontrolü için
+async def yetki_kontrol_hatasi(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ Bu komutu kullanmak için 'Yönetici' yetkiniz olmalıdır!")
+
+bot.run("YOUR_DISCORD_BOT_TOKEN")
+                   
