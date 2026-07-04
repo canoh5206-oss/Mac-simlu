@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -9,10 +10,12 @@ const client = new Client({
     ]
 });
 
-// Basit veri tutma (Gerçek projede 'fs' ile JSON dosyasına yazman önerilir)
+// Basit Veri Deposu (Bellek içi)
 const db = { bakiye: {}, ant: {}, lastPen: {}, lastAnt: {}, davet: {} };
 
-client.on('ready', () => console.log(`${client.user.tag} aktif!`));
+client.on('ready', () => {
+    console.log(`✅ Başarılı: ${client.user.tag} olarak Discord'a giriş yapıldı!`);
+});
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('.')) return;
@@ -21,52 +24,75 @@ client.on('messageCreate', async (message) => {
     const cmd = args.shift().toLowerCase();
     const user = message.author.id;
 
-    // .yardım
-    if (cmd === 'yardım') {
-        const embed = new EmbedBuilder().setTitle('Ekonomi & Lig Sistemi').setColor(0xFF0000)
+    // .yardım / .yardim
+    if (cmd === 'yardım' || cmd === 'yardim') {
+        const embed = new EmbedBuilder()
+            .setTitle('💰 Ekonomi & Lig Sistemi Komutları')
+            .setColor(0x00FF00) // Yeşil
             .addFields(
-                { name: '⚽ Lig', value: '.pen (Penaltı)\n.ant (Antrenman 10/1)' },
-                { name: '✉️ Davet', value: '.davet [@üye]\n.davetsirala' },
-                { name: '🪙 Ekonomi', value: '.bal\n.send @üye miktar\n.bütçe' }
+                { name: '⚽ Lig & Eğlence (Ödülsüz)', value: '`.pen` -> Penaltı atarsın (Saatlik)\n`.ant` -> Antrenman yaparsın (10/1 aşamalı, saatlik)', inline: false },
+                { name: '✉️ Davet Sistemi', value: '`.davet [@üye]` -> Davet istatistikleri\n`.davetsirala` -> Sunucu ilk 10 davet lideri', inline: false },
+                { name: '🪙 Ekonomi', value: '`.bal` -> Nakit gösterir\n`.send @üye [miktar]` -> Para transferi\n`.bütçe` -> Kulüp bütçesini gösterir', inline: false }
             );
-        message.channel.send({ embeds: [embed] });
+
+        if (message.member.permissions.has('Administrator')) {
+            embed.addFields({ name: '👑 Owner / Yönetici Yetkileri', value: '`.paraver` / `.parasil` -> Cash yönetimi\n`.bütçe ekle` / `.bütçe sil` -> Bütçe yönetimi\n`.davetal` / `.davetsil` -> Davet yönetimi', inline: false });
+        }
+        return message.channel.send({ embeds: [embed] });
     }
 
     // .bal
     if (cmd === 'bal') {
-        message.reply(`Bakiye: ${db.bakiye[user] || 0} cash.`);
+        const bakiye = db.bakiye[user] || 0;
+        return message.reply(`🪙 **${message.author.displayName}**, mevcut nakit bakiyeniz: **${bakiye.toLocaleString()}** cash.`);
     }
 
-    // .pen (Ödülsüz)
+    // .pen (Ödülsüz - Saatlik)
     if (cmd === 'pen') {
         const now = Date.now();
-        if (db.lastPen[user] && now - db.lastPen[user] < 3600000) return message.reply("⏱️ 1 saat beklemen lazım!");
-        const results = ["GOL!", "DİREK!", "AUT!", "KALECİ!"];
-        message.reply(`⚽ Penaltı: **${results[Math.floor(Math.random() * results.length)]}**`);
+        if (db.lastPen[user] && now - db.lastPen[user] < 3600000) {
+            const kalanDk = Math.ceil((3600000 - (now - db.lastPen[user])) / 60000);
+            return message.reply(`⏱️ Bu komut saatte 1 kez kullanılabilir! Kalan süre: **${kalanDk}** dakika.`);
+        }
+        const sonuclar = ["⚽ GOL! Muhteşem bir vuruş!", "🥅 DİREK! Top direkten döndü!", "🏟️ AUT! Top dışarı çıktı!", "🧤 KALECİ! Kaleci köşeden çıkarde!"];
+        const secilen = sonuclar[Math.floor(Math.random() * sonuclar.length)];
         db.lastPen[user] = now;
+        return message.reply(`⚽ **${message.author.displayName}** penaltı kullandı...\n👉 **${secilen}**`);
     }
 
-    // .ant (Ödülsüz, 10/1 aşamalı)
+    // .ant (Ödülsüz - 10/1 Aşamalı)
     if (cmd === 'ant') {
         const now = Date.now();
-        if (db.lastAnt[user] && now - db.lastAnt[user] < 3600000) return message.reply("⏱️ 1 saat beklemen lazım!");
-        db.ant[user] = (db.ant[user] || 0) + 1;
-        if (db.ant[user] >= 10) {
-            message.reply("🏃‍♂️ 10/10 tamamlandı! İlerleme sıfırlandı.");
-            db.ant[user] = 0;
-        } else {
-            message.reply(`🏃‍♂️ Antrenman: ${db.ant[user]}/10`);
+        if (db.lastAnt[user] && now - db.lastAnt[user] < 3600000) {
+            const kalanDk = Math.ceil((3600000 - (now - db.lastAnt[user])) / 60000);
+            return message.reply(`⏱️ Antrenman saatte 1 kez yapılabilir! Kalan süre: **${kalanDk}** dakika.`);
         }
+        db.ant[user] = (db.ant[user] || 0) + 1;
         db.lastAnt[user] = now;
-    }
 
-    // .davetsirala (Örnek)
-    if (cmd === 'davetsirala') {
-        message.reply("🏆 İlk 10 sıralaması hesaplanıyor...");
+        if (db.ant[user] >= 10) {
+            db.ant[user] = 0;
+            return message.reply(`🏃‍♂️ **${message.author.displayName}**, 10/10 antrenmanı tamamladın! İlerlemeniz sıfırlandı.`);
+        } else {
+            return message.reply(`🏃‍♂️ **${message.author.displayName}**, antrenman yapıldı! İlerleme: **${db.ant[user]}/10**`);
+        }
     }
 });
 
-client.login('BURAYA_YENİ_KOPYALADIĞIN_TOKENİ_YAPIŞTIR');
+// --- CRITICAL TOKEN VE HATA KONTROLÜ ---
+const token = process.env.DISCORD_TOKEN;
+
+if (!token) {
+    console.error("❌ HATA: Railway Variables kısmında 'DISCORD_TOKEN' bulunamadı veya içi boş!");
+    process.exit(1); 
+} else {
+    console.log("🔍 Bilgi: DISCORD_TOKEN değişkeni tespit edildi, giriş deneniyor...");
+    client.login(token).catch(err => {
+        console.error("❌ HATA: Discord login başarısız oldu! Token geçersiz veya Privileged Intents ayarları kapalı.", err.message);
+        process.exit(1);
+    });
+}
+
 
 
                    
