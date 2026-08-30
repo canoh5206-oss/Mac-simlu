@@ -1,5 +1,4 @@
-
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -27,23 +26,32 @@ client.on('guildMemberAdd', async (member) => {
     if (!kanal) return;
 
     const embed = new EmbedBuilder()
-        .setColor('#00FF00')
-        .setTitle(`Hoşgeldin ${member.user.username} 🐱`)
-        .setDescription(`🐥 **Diamond League** adlı sunucumuza hoşgeldiniiizz!!\n\n👥 Seninle beraber tam olarak **${member.guild.memberCount}** kişi olduukkk\n\n🎲 Yetkililer seni birazdan kayıt edecektir. Lütfen biraz sabredin\n\nHesabın <t:${Math.floor(member.user.createdTimestamp / 1000)}:R> kurulmuş.\nHesap Güvenli 🛡️`)
-        .setThumbnail(member.user.displayAvatarURL())
-        .setImage('https://i.ibb.co/3s6D5fJ/car-snow.gif') // İsteğe bağlı banner/fotoğraf linki
-        .setFooter({ text: `Nasılsın bakalım ${member.user.username}?` });
+        .setColor('#2b2d31')
+        .setTitle(`🎉 Aramıza Hoş Geldin, ${member.user.username}!`)
+        .setDescription(`
+✨ **Diamond League** sunucumuza ilk adımını attın!
+
+👥 **Sunucu Durumu:** Seninle birlikte **${member.guild.memberCount}** kişi olduk!
+⏳ **Kayıt İşlemi:** Yetkililerimiz en kısa sürede seninle ilgilenecektir.
+
+🛡️ **Hesap Durumu:** <t:${Math.floor(member.user.createdTimestamp / 1000)}:R> oluşturulmuş (Güvenli)
+        `)
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
+        .setImage('https://i.ibb.co/3s6D5fJ/car-snow.gif')
+        .setFooter({ text: 'Diamond League • Otomatik Kayıt Sistemi', iconURL: member.guild.iconURL() })
+        .setTimestamp();
 
     await kanal.send({ content: `<@&${KAYIT_YETKILI_ROL_ID}>`, embeds: [embed] });
 });
 
 // 2. YETKİLİ KAYIT KOMUTU (?k @kullanıcı İsim)
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.content.startsWith('!k')) return;
+    // Komut ön eki ?k yapıldı
+    if (message.author.bot || !message.content.startsWith('?k')) return;
 
     // Yetkili Kontrolü
     if (!message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
-        return message.reply('❌ Bu komutu kullanmak için Kayıt Yetkilisi rolüne sahip olmalısın!');
+        return message.reply('❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir!');
     }
 
     const args = message.content.slice(2).trim().split(/ +/);
@@ -51,40 +59,63 @@ client.on('messageCreate', async (message) => {
     const yeniIsim = args.slice(1).join(' ');
 
     if (!hedefUye || !yeniIsim) {
-        return message.reply('⚠️ Hatalı kullanım! Örnek: `!k @kullanıcı Yeni İsim`');
+        return message.reply('⚠️ **Hatalı Kullanım!** Doğru biçim: `?k @kullanıcı Yeni İsim`');
     }
 
+    // Şık Buton Tasarımları
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`kayit_futbolcu_${hedefUye.id}_${yeniIsim}`).setLabel('Futbolcu').setStyle(ButtonStyle.Primary).setEmoji('⚽'),
-        new ButtonBuilder().setCustomId(`kayit_td_${hedefUye.id}_${yeniIsim}`).setLabel('Teknik Direktör').setStyle(ButtonStyle.Primary).setEmoji('🧠'),
-        new ButtonBuilder().setCustomId(`kayit_baskan_${hedefUye.id}_${yeniIsim}`).setLabel('Kulüp Başkanı').setStyle(ButtonStyle.Primary).setEmoji('👑')
+        new ButtonBuilder()
+            .setCustomId(`kayit_futbolcu_${hedefUye.id}_${yeniIsim}`)
+            .setLabel('Futbolcu')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('⚽'),
+        new ButtonBuilder()
+            .setCustomId(`kayit_td_${hedefUye.id}_${yeniIsim}`)
+            .setLabel('Teknik Direktör')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🧠'),
+        new ButtonBuilder()
+            .setCustomId(`kayit_baskan_${hedefUye.id}_${yeniIsim}`)
+            .setLabel('Kulüp Başkanı')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('👑')
     );
 
+    // Güzelleştirilmiş Kayıt Menüsü Embed'i
     const embed = new EmbedBuilder()
-        .setColor('#2F3136')
-        .setTitle('⚽ Kayıt Menüsü')
-        .setDescription(`**Kayıt Edilecek:** ${hedefUye}\n**Verilecek İsim:** \`${yeniIsim}\`\n\nLütfen verilecek rolü aşağıdan seçin:`);
+        .setColor('#5865F2')
+        .setAuthor({ name: 'Athena Lig — Kayıt İşlemi', iconURL: message.guild.iconURL() })
+        .setTitle('📋 Kullanıcı Kayıt Paneli')
+        .setDescription(`
+👤 **Kayıt Edilecek:** ${hedefUye} (\`${hedefUye.user.tag}\`)
+✍️ **Verilecek İsim:** \`${yeniIsim}\`
+
+👇 *Lütfen aşağıda yer alan butonlardan oyuncunun verilmesini istediğiniz **rolünü seçin**:*
+        `)
+        .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
+        .setFooter({ text: `İşlemi Başlatan Yetkili: ${message.author.username}`, iconURL: message.author.displayAvatarURL() })
+        .setTimestamp();
 
     await message.channel.send({ embeds: [embed], components: [row] });
 });
 
-// 3. BUTON ETKİLEŞİMİ (Rol verme & İsim Değiştirme)
+// 3. BUTON ETKİLEŞİMİ (Rol Verme & Kayıtsız Rolü Alma)
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
     const [aksiyon, rolTuru, hedefId, ...isimParcalari] = interaction.customId.split('_');
     if (aksiyon !== 'kayit') return;
 
-    // İşlemi yapan yetkili mi?
+    // Yetkili Kontrolü
     if (!interaction.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
-        return interaction.reply({ content: '❌ Bu butonları sadece Kayıt Yetkilisi kullanabilir.', ephemeral: true });
+        return interaction.reply({ content: '❌ Bu butonla sadece Kayıt Yetkilileri etkileşime girebilir.', ephemeral: true });
     }
 
     const hedefUye = await interaction.guild.members.fetch(hedefId).catch(() => null);
     const yeniIsim = isimParcalari.join(' ');
 
     if (!hedefUye) {
-        return interaction.reply({ content: '❌ Kullanıcı sunucuda bulunamadı!', ephemeral: true });
+        return interaction.reply({ content: '❌ Kayıt edilmek istenen kullanıcı sunucudan ayrılmış!', ephemeral: true });
     }
 
     const verilecekRolId = ROLLER[rolTuru];
@@ -93,23 +124,38 @@ client.on('interactionCreate', async (interaction) => {
         // İsim Değiştirme
         await hedefUye.setNickname(yeniIsim);
 
-        // Rol Ekleme & Kayıtsız Rolünü Alma
+        // Rol Ekleme & Kayıtsız Rolünü Çıkarma
         await hedefUye.roles.add(verilecekRolId);
         if (hedefUye.roles.cache.has(KAYITSIZ_ROL_ID)) {
             await hedefUye.roles.remove(KAYITSIZ_ROL_ID);
         }
 
+        // Başarılı İşlem Mesajı
+        const basariEmbed = new EmbedBuilder()
+            .setColor('#57F287')
+            .setTitle('✅ Kayıt İşlemi Başarıyla Tamamlandı')
+            .setDescription(`
+👤 **Kayıt Yapılan:** ${hedefUye}
+📝 **Yeni İsmi:** \`${yeniIsim}\`
+🎖️ **Verilen Rol:** <@&${verilecekRolId}>
+🗑️ **Alınan Rol:** <@&${KAYITSIZ_ROL_ID}>
+            `)
+            .setFooter({ text: `Onaylayan Yetkili: ${interaction.user.username}` })
+            .setTimestamp();
+
         await interaction.update({
-            content: `✅ ${hedefUye} kullanıcısı **${yeniIsim}** ismiyle kayıt edildi ve <@&${verilecekRolId}> rolü verildi!`,
-            embeds: [],
+            embeds: [basariEmbed],
             components: []
         });
 
     } catch (err) {
         console.error(err);
-        await interaction.reply({ content: '❌ Rol verirken veya isim değiştirirken yetki hatası oluştu! Botun rolünü en üste taşıyın.', ephemeral: true });
+        await interaction.reply({ 
+            content: '❌ **Yetki Hatası!** Botun rolü sunucu ayarlarında verilecek rollerin ve kullanıcının **üstünde** olmalıdır.', 
+            ephemeral: true 
+        });
     }
 });
 
 client.login(process.env.TOKEN);
-
+        
