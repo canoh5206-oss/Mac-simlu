@@ -111,5 +111,5 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-client.login('BOT_TOKEN_BURAYA');
-                                          
+client.login(process.env.TOKEN);
+
