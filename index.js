@@ -44,7 +44,7 @@ client.on('guildMemberAdd', async (member) => {
     await kanal.send({ content: `<@&${KAYIT_YETKILI_ROL_ID}>`, embeds: [embed] });
 });
 
-// 2. YETKİLİ KAYIT KOMUTU (?k @kullanıcı İsim)
+// 2. YETKİLİ KAYIT KOMUTU (.k @kullanıcı İsim)
 client.on('messageCreate', async (message) => {
     // Mesaj bot mesajıysa veya ?k ile başlamıyorsa dur (büyük/küçük harf duyarsız)
     if (message.author.bot || !message.content.toLowerCase().startsWith('?k')) return;
