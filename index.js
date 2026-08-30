@@ -46,23 +46,24 @@ client.on('guildMemberAdd', async (member) => {
 
 // 2. YETKİLİ KAYIT KOMUTU (?k @kullanıcı İsim)
 client.on('messageCreate', async (message) => {
-    // Komut ön eki ?k yapıldı
-    if (message.author.bot || !message.content.startsWith('?k')) return;
+    // Mesaj bot mesajıysa veya ?k ile başlamıyorsa dur (büyük/küçük harf duyarsız)
+    if (message.author.bot || !message.content.toLowerCase().startsWith('?k')) return;
 
     // Yetkili Kontrolü
     if (!message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
         return message.reply('❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir!');
     }
 
+    // Komutu ve parametreleri ayır
     const args = message.content.slice(2).trim().split(/ +/);
     const hedefUye = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
     const yeniIsim = args.slice(1).join(' ');
 
     if (!hedefUye || !yeniIsim) {
-        return message.reply('⚠️ **Hatalı Kullanım!** Doğru biçim: `?k @kullanıcı Yeni İsim`');
+        return message.reply('⚠️ **Hatalı Kullanım!** Doğru kullanım: `?k @kullanıcı Yeni İsim`');
     }
 
-    // Şık Buton Tasarımları
+    // Buton Tasarımları
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`kayit_futbolcu_${hedefUye.id}_${yeniIsim}`)
@@ -81,16 +82,16 @@ client.on('messageCreate', async (message) => {
             .setEmoji('👑')
     );
 
-    // Güzelleştirilmiş Kayıt Menüsü Embed'i
+    // Embed Paneli
     const embed = new EmbedBuilder()
         .setColor('#5865F2')
-        .setAuthor({ name: 'Athena Lig — Kayıt İşlemi', iconURL: message.guild.iconURL() })
+        .setAuthor({ name: 'Athena Lig — Kayıt Paneli', iconURL: message.guild.iconURL() })
         .setTitle('📋 Kullanıcı Kayıt Paneli')
         .setDescription(`
 👤 **Kayıt Edilecek:** ${hedefUye} (\`${hedefUye.user.tag}\`)
 ✍️ **Verilecek İsim:** \`${yeniIsim}\`
 
-👇 *Lütfen aşağıda yer alan butonlardan oyuncunun verilmesini istediğiniz **rolünü seçin**:*
+👇 *Lütfen oyuncunun verilmesini istediğiniz **rolünü seçin**:*
         `)
         .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
         .setFooter({ text: `İşlemi Başlatan Yetkili: ${message.author.username}`, iconURL: message.author.displayAvatarURL() })
@@ -98,6 +99,7 @@ client.on('messageCreate', async (message) => {
 
     await message.channel.send({ embeds: [embed], components: [row] });
 });
+
 
 // 3. BUTON ETKİLEŞİMİ (Rol Verme & Kayıtsız Rolü Alma)
 client.on('interactionCreate', async (interaction) => {
