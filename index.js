@@ -9,11 +9,11 @@ const client = new Client({
     ]
 });
 
-// ID Tanımlamaları
+// ID TANIMLAMALARI
 const KAYIT_KANAL_ID = '1542874216657850489';
 const KAYIT_YETKILI_ROL_ID = '1542874729604579428';
 const KAYITSIZ_ROL_ID = '1535308274482552914';
-const KAYITLI_UYE_ROL_ID = '1535308273455202416'; // Otomatik eklenecek ortak rol
+const KAYITLI_UYE_ROL_ID = '1535308273455202416'; // Her buton basılışında ortak verilecek 2. rol
 
 const ROLLER = {
     futbolcu: '1535308272293126214',
@@ -27,10 +27,10 @@ const ROL_ISIMLERI = {
     baskan: 'Kulüp Başkanı'
 };
 
-// Kayıt Verilerini Tutma (YetkiliID -> Sayı)
+// Kayıt İstatistiklerini Tutma (YetkiliID -> Sayı)
 const kayitVerileri = {};
 
-// 1. OTO HOŞ GELDİN KANALI & TAG
+// 1. OTO HOŞ GELDİN MESAJI
 client.on('guildMemberAdd', async (member) => {
     const kanal = member.guild.channels.cache.get(KAYIT_KANAL_ID);
     if (!kanal) return;
@@ -44,7 +44,7 @@ client.on('guildMemberAdd', async (member) => {
 👥 **Sunucu Durumu:** Seninle birlikte **${member.guild.memberCount}** kişi olduk!
 ⏳ **Kayıt İşlemi:** Yetkililerimiz en kısa sürede seninle ilgilenecektir.
 
-🛡️ **Hesap Durumu:** <t:${Math.floor(member.user.createdTimestamp / 1000)}:R> oluşturulmuş
+🛡️ **Hesap Oluşturulma Tarihi:** <t:${Math.floor(member.user.createdTimestamp / 1000)}:R>
         `)
         .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
         .setImage('https://i.ibb.co/3s6D5fJ/car-snow.gif')
@@ -54,12 +54,12 @@ client.on('guildMemberAdd', async (member) => {
     await kanal.send({ content: `<@&${KAYIT_YETKILI_ROL_ID}>`, embeds: [embed] });
 });
 
-// 2. MESAJ DİNLEYİCİ (.k VE .kayitsayilari)
+// 2. MESAJ DİNLEYİCİ (.k VE .ks / .kayitsayilari)
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     const content = message.content.toLowerCase();
 
-    // A) .kayitsayilari / .ks KOMUTU
+    // A) KAYIT SIRALAMASI KOMUTU (.kayitsayilari / .ks)
     if (content.startsWith('.kayitsayilari') || content.startsWith('.ks')) {
         if (!message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
             return message.reply('❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir!');
@@ -87,13 +87,13 @@ client.on('messageCreate', async (message) => {
             .setColor('#FEE75C')
             .setTitle('🏆 Kayıt Sıralaması — Yetkili İstatistikleri')
             .setDescription(siralama)
-            .setFooter({ text: 'Athena Lig Kayıt Sistemi', iconURL: message.guild.iconURL() })
+            .setFooter({ text: 'Diamond League Kayıt Sistemi', iconURL: message.guild.iconURL() })
             .setTimestamp();
 
         return message.channel.send({ embeds: [statEmbed] });
     }
 
-    // B) .k KAYIT KOMUTU (.k @kullanıcı İsim)
+    // B) KAYIT BAŞLATMA KOMUTU (.k @kullanıcı Yeni İsim)
     if (content.startsWith('.k')) {
         if (!message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
             return message.reply('❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir!');
@@ -104,7 +104,7 @@ client.on('messageCreate', async (message) => {
         const yeniIsim = args.slice(1).join(' ');
 
         if (!hedefUye || !yeniIsim) {
-            return message.reply('⚠️ **Hatalı Kullanım!** Doğru kullanım: `.k @kullanıcı Yeni İsim`');
+            return message.reply('⚠️ **Hatalı Kullanım!** Doğru kullanım: `.k @kullanıcı İsim`');
         }
 
         const row = new ActionRowBuilder().addComponents(
@@ -127,15 +127,15 @@ client.on('messageCreate', async (message) => {
 
         const embed = new EmbedBuilder()
             .setColor('#5865F2')
-            .setAuthor({ name: 'Athena Lig — Kayıt Paneli', iconURL: message.guild.iconURL() })
+            .setAuthor({ name: 'Diamond League — Kayıt Paneli', iconURL: message.guild.iconURL() })
             .setTitle('📋 Kullanıcı Kayıt Paneli')
             .setDescription(`
 👤 **Kayıt Edilecek:** ${hedefUye} (\`${hedefUye.user.tag}\`)
 ✍️ **Verilecek İsim:** \`${yeniIsim}\`
 
-📌 *Seçilen role göre otomatik olarak <@&${KAYITLI_UYE_ROL_ID}> rolü de eklenecektir.*
+📌 *Seçilen ana rolün yanında otomatik olarak <@&${KAYITLI_UYE_ROL_ID}> rolü de verilecektir.*
 
-👇 *Lütfen ana rolü seçin:*
+👇 *Lütfen bir rol seçiniz:*
             `)
             .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
             .setFooter({ text: `İşlemi Başlatan Yetkili: ${message.author.username}`, iconURL: message.author.displayAvatarURL() })
@@ -145,7 +145,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 3. BUTON ETKİLEŞİMİ (2 Rol Verme + Kayıtsız Rolü Alımı)
+// 3. BUTON ETKİLEŞİMİ (2 Rol Verme + Kayıtsız Rolü Çıkarma)
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
@@ -169,22 +169,23 @@ client.on('interactionCreate', async (interaction) => {
         // 1. İsim Değiştirme
         await hedefUye.setNickname(yeniIsim);
 
-        // 2. Çift Rol Verimi (Ana Rol + Kayıtlı Üye Rolü)
-        await hedefUye.roles.add([verilecekAnaRolId, KAYITLI_UYE_ROL_ID]);
+        // 2. 2 Rolü Sırayla Kesin Olarak Ekleme
+        await hedefUye.roles.add(verilecekAnaRolId);   // Seçilen Rol (Futbolcu / TD / Başkan)
+        await hedefUye.roles.add(KAYITLI_UYE_ROL_ID);  // Kayıtlı Üye Rolü (1535308273455202416)
 
-        // 3. Kayıtsız Üye Rolünü Alma
+        // 3. Kayıtsız Rolünü Çıkarma
         if (hedefUye.roles.cache.has(KAYITSIZ_ROL_ID)) {
             await hedefUye.roles.remove(KAYITSIZ_ROL_ID);
         }
 
-        // 4. Yetkili Kayıt Sayısını Artır
+        // 4. Yetkili Kayıt Sayısını Güncelle
         const yetkiliId = interaction.user.id;
         kayitVerileri[yetkiliId] = (kayitVerileri[yetkiliId] || 0) + 1;
 
         // 5. Şık Onay Embed'i
         const basariEmbed = new EmbedBuilder()
             .setColor('#57F287')
-            .setAuthor({ name: 'Athena Lig — Kayıt Tamamlandı', iconURL: interaction.guild.iconURL() })
+            .setAuthor({ name: 'Diamond League — Kayıt Tamamlandı', iconURL: interaction.guild.iconURL() })
             .setTitle('⚡ Kayıt İşlemi Başarılı!')
             .setDescription(`
 👤 **Kayıt Yapılan:** ${hedefUye} (\`${hedefUye.user.tag}\`)
@@ -209,11 +210,11 @@ client.on('interactionCreate', async (interaction) => {
     } catch (err) {
         console.error(err);
         await interaction.reply({ 
-            content: '❌ **Yetki Hatası!** Botun kendi rolü sunucu ayarlarında verilecek rollerin ve yetkililerin **üstünde** olmalıdır.', 
+            content: '❌ **Yetki Hatası!** Botun kendi rolünü sunucu ayarlarında hem verilecek rollerin hem de yetkililerin **üstüne** taşıdığınızdan emin olun.', 
             ephemeral: true 
         });
     }
 });
 
 client.login(process.env.TOKEN);
-
+                      
