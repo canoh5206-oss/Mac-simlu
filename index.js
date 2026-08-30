@@ -13,7 +13,7 @@ const client = new Client({
 const KAYIT_KANAL_ID = '1542874216657850489';
 const KAYIT_YETKILI_ROL_ID = '1542874729604579428';
 const KAYITSIZ_ROL_ID = '1535308274482552914';
-const KAYITLI_UYE_ROL_ID = '1535308273455202416'; // Her buton basılışında ortak verilecek 2. rol
+const KAYITLI_UYE_ROL_ID = '1535308273455202416'; // Her buton basılışında verilecek 2. zorunlu rol
 
 const ROLLER = {
     futbolcu: '1535308272293126214',
@@ -133,9 +133,9 @@ client.on('messageCreate', async (message) => {
 👤 **Kayıt Edilecek:** ${hedefUye} (\`${hedefUye.user.tag}\`)
 ✍️ **Verilecek İsim:** \`${yeniIsim}\`
 
-📌 *Seçilen ana rolün yanında otomatik olarak <@&${KAYITLI_UYE_ROL_ID}> rolü de verilecektir.*
+📌 *Seçilen rol ile birlikte **Kayıtlı Üye** (<@&${KAYITLI_UYE_ROL_ID}>) rolü otomatik verilecektir.*
 
-👇 *Lütfen bir rol seçiniz:*
+👇 *Lütfen oyuncunun rolünü seçiniz:*
             `)
             .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
             .setFooter({ text: `İşlemi Başlatan Yetkili: ${message.author.username}`, iconURL: message.author.displayAvatarURL() })
@@ -145,7 +145,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 3. BUTON ETKİLEŞİMİ (2 Rol Verme + Kayıtsız Rolü Çıkarma)
+// 3. BUTON ETKİLEŞİMİ (ÇİFT ROL EKLEME + KAYITSIZ ROLÜ ALMA)
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
@@ -169,11 +169,10 @@ client.on('interactionCreate', async (interaction) => {
         // 1. İsim Değiştirme
         await hedefUye.setNickname(yeniIsim);
 
-        // 2. 2 Rolü Sırayla Kesin Olarak Ekleme
-        await hedefUye.roles.add(verilecekAnaRolId);   // Seçilen Rol (Futbolcu / TD / Başkan)
-        await hedefUye.roles.add(KAYITLI_UYE_ROL_ID);  // Kayıtlı Üye Rolü (1535308273455202416)
+        // 2. ÇİFT ROL VERME (Tek pakette 2 Rol Verilir)
+        await hedefUye.roles.add([verilecekAnaRolId, KAYITLI_UYE_ROL_ID]);
 
-        // 3. Kayıtsız Rolünü Çıkarma
+        // 3. Kayıtsız Rolünü Kaldırma
         if (hedefUye.roles.cache.has(KAYITSIZ_ROL_ID)) {
             await hedefUye.roles.remove(KAYITSIZ_ROL_ID);
         }
@@ -182,7 +181,7 @@ client.on('interactionCreate', async (interaction) => {
         const yetkiliId = interaction.user.id;
         kayitVerileri[yetkiliId] = (kayitVerileri[yetkiliId] || 0) + 1;
 
-        // 5. Şık Onay Embed'i
+        // 5. Onay Ekranı
         const basariEmbed = new EmbedBuilder()
             .setColor('#57F287')
             .setAuthor({ name: 'Diamond League — Kayıt Tamamlandı', iconURL: interaction.guild.iconURL() })
@@ -191,7 +190,7 @@ client.on('interactionCreate', async (interaction) => {
 👤 **Kayıt Yapılan:** ${hedefUye} (\`${hedefUye.user.tag}\`)
 ✍️ **Yeni İsim:** \`${yeniIsim}\`
 
-🎖️ **Verilen Roller:**
+🎖️ **Verilen Roller (2 Adet):**
 > • <@&${verilecekAnaRolId}> (${ROL_ISIMLERI[rolTuru]})
 > • <@&${KAYITLI_UYE_ROL_ID}> (Kayıtlı Üye)
 
@@ -210,11 +209,11 @@ client.on('interactionCreate', async (interaction) => {
     } catch (err) {
         console.error(err);
         await interaction.reply({ 
-            content: '❌ **Yetki Hatası!** Botun kendi rolünü sunucu ayarlarında hem verilecek rollerin hem de yetkililerin **üstüne** taşıdığınızdan emin olun.', 
+            content: '❌ **Yetki Hatası!** Botun kendi rolünü sunucu ayarlarında hem verilecek 2 rolün hem de yetkililerin **üstüne** taşıdığınızdan emin olun.', 
             ephemeral: true 
         });
     }
 });
 
 client.login(process.env.TOKEN);
-                      
+            
