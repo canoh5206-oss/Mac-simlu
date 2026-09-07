@@ -1,219 +1,95 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const axios = require('axios'); // Anlık veriler için
+require('dotenv').config();
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-// ID TANIMLAMALARI
-const KAYIT_KANAL_ID = '1542874216657850489';
-const KAYIT_YETKILI_ROL_ID = '1542874729604579428';
-const KAYITSIZ_ROL_ID = '1535308274482552914';
-const KAYITLI_UYE_ROL_ID = '1535308273455202416'; // Her buton basılışında verilecek 2. zorunlu rol
+const PREFIX = '!';
+const SERVER_IP = process.env.MC_SERVER_IP || '33numara.exaroton.me';
 
-const ROLLER = {
-    futbolcu: '1535308272293126214',
-    td: '1535308267239116931',
-    baskan: '1535308266169434222'
-};
+// 1. Kapalı / Aktif Durum ve Oyuncu Sayısı (Bot Durumu)
+client.once('ready', () => {
+  console.log(`${client.user.tag} aktif!`);
+  
+  setInterval(async () => {
+    try {
+      const res = await axios.get(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
+      if (res.data.online) {
+        client.user.setActivity(`🟢 ${res.data.players.online}/${res.data.players.max} Oyuncu`);
+      } else {
+        client.user.setActivity('🔴 Sunucu Kapalı');
+      }
+    } catch {
+      client.user.setActivity('🔴 Sunucu Kapalı');
+    }
+  }, 30000); // 30 saniyede bir günceller
+});
 
-const ROL_ISIMLERI = {
-    futbolcu: 'Futbolcu',
-    td: 'Teknik Direktör',
-    baskan: 'Kulüp Başkanı'
-};
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
-// Kayıt İstatistiklerini Tutma (YetkiliID -> Sayı)
-const kayitVerileri = {};
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
 
-// 1. OTO HOŞ GELDİN MESAJI
-client.on('guildMemberAdd', async (member) => {
-    const kanal = member.guild.channels.cache.get(KAYIT_KANAL_ID);
-    if (!kanal) return;
+  // 2. !oyuncular veya !logs - Anlık Kimler Oyunda?
+  if (command === 'oyuncular' || command === 'logs') {
+    try {
+      const res = await axios.get(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
+      
+      if (!res.data.online) {
+        return message.channel.send('🔴 Sunucu şu anda kapalı.');
+      }
 
-    const embed = new EmbedBuilder()
-        .setColor('#2b2d31')
-        .setTitle(`🎉 Aramıza Hoş Geldin, ${member.user.username}!`)
-        .setDescription(`
-✨ **Diamond League** sunucumuza ilk adımını attın!
+      const onlinePlayers = res.data.players.list || [];
+      const playerCount = res.data.players.online;
+      const playerMax = res.data.players.max;
 
-👥 **Sunucu Durumu:** Seninle birlikte **${member.guild.memberCount}** kişi olduk!
-⏳ **Kayıt İşlemi:** Yetkililerimiz en kısa sürede seninle ilgilenecektir.
-
-🛡️ **Hesap Oluşturulma Tarihi:** <t:${Math.floor(member.user.createdTimestamp / 1000)}:R>
-        `)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 }))
-        .setImage('https://i.ibb.co/3s6D5fJ/car-snow.gif')
-        .setFooter({ text: 'Diamond League • Otomatik Kayıt Sistemi', iconURL: member.guild.iconURL() })
+      const embed = new EmbedBuilder()
+        .setTitle('🎮 Aktif Oyuncu Listesi')
+        .setColor('#55FF55')
+        .addFields(
+          { name: 'Kişilik / Kapasite', value: `\`${playerCount} / ${playerMax}\``, inline: true },
+          { name: 'Durum', value: '🟢 Aktif', inline: true },
+          { 
+            name: 'Oyundaki Isimler', 
+            value: onlinePlayers.length > 0 ? onlinePlayers.map(p => `• ${p}`).join('\n') : 'Şu anda oyunda kimse yok.' 
+          }
+        )
         .setTimestamp();
 
-    await kanal.send({ content: `<@&${KAYIT_YETKILI_ROL_ID}>`, embeds: [embed] });
-});
-
-// 2. MESAJ DİNLEYİCİ (.k VE .ks / .kayitsayilari)
-client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    const content = message.content.toLowerCase();
-
-    // A) KAYIT SIRALAMASI KOMUTU (.kayitsayilari / .ks)
-    if (content.startsWith('.kayitsayilari') || content.startsWith('.ks')) {
-        if (!message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
-            return message.reply('❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir!');
-        }
-
-        const yetkiliIdleri = Object.keys(kayitVerileri);
-
-        if (yetkiliIdleri.length === 0) {
-            return message.reply('📊 Henüz hiçbir yetkili kayıt yapmamış.');
-        }
-
-        const siralama = yetkiliIdleri
-            .sort((a, b) => kayitVerileri[b] - kayitVerileri[a])
-            .map((id, index) => {
-                let madalya = '▫️';
-                if (index === 0) madalya = '🥇';
-                else if (index === 1) madalya = '🥈';
-                else if (index === 2) madalya = '🥉';
-
-                return `${madalya} **${index + 1}.** <@${id}> — \`${kayitVerileri[id]}\` Kayıt`;
-            })
-            .join('\n');
-
-        const statEmbed = new EmbedBuilder()
-            .setColor('#FEE75C')
-            .setTitle('🏆 Kayıt Sıralaması — Yetkili İstatistikleri')
-            .setDescription(siralama)
-            .setFooter({ text: 'Diamond League Kayıt Sistemi', iconURL: message.guild.iconURL() })
-            .setTimestamp();
-
-        return message.channel.send({ embeds: [statEmbed] });
+      return message.channel.send({ embeds: [embed] });
+    } catch (error) {
+      return message.channel.send('Sunucu bilgileri alınırken bir hata oluştu.');
     }
+  }
 
-    // B) KAYIT BAŞLATMA KOMUTU (.k @kullanıcı Yeni İsim)
-    if (content.startsWith('.k')) {
-        if (!message.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
-            return message.reply('❌ Bu komutu sadece **Kayıt Yetkilileri** kullanabilir!');
-        }
-
-        const args = message.content.slice(2).trim().split(/ +/);
-        const hedefUye = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
-        const yeniIsim = args.slice(1).join(' ');
-
-        if (!hedefUye || !yeniIsim) {
-            return message.reply('⚠️ **Hatalı Kullanım!** Doğru kullanım: `.k @kullanıcı İsim`');
-        }
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`kayit_futbolcu_${hedefUye.id}_${yeniIsim}`)
-                .setLabel('Futbolcu')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('⚽'),
-            new ButtonBuilder()
-                .setCustomId(`kayit_td_${hedefUye.id}_${yeniIsim}`)
-                .setLabel('Teknik Direktör')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🧠'),
-            new ButtonBuilder()
-                .setCustomId(`kayit_baskan_${hedefUye.id}_${yeniIsim}`)
-                .setLabel('Kulüp Başkanı')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('👑')
-        );
-
-        const embed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setAuthor({ name: 'Diamond League — Kayıt Paneli', iconURL: message.guild.iconURL() })
-            .setTitle('📋 Kullanıcı Kayıt Paneli')
-            .setDescription(`
-👤 **Kayıt Edilecek:** ${hedefUye} (\`${hedefUye.user.tag}\`)
-✍️ **Verilecek İsim:** \`${yeniIsim}\`
-
-📌 *Seçilen rol ile birlikte **Kayıtlı Üye** (<@&${KAYITLI_UYE_ROL_ID}>) rolü otomatik verilecektir.*
-
-👇 *Lütfen oyuncunun rolünü seçiniz:*
-            `)
-            .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
-            .setFooter({ text: `İşlemi Başlatan Yetkili: ${message.author.username}`, iconURL: message.author.displayAvatarURL() })
-            .setTimestamp();
-
-        await message.channel.send({ embeds: [embed], components: [row] });
-    }
-});
-
-// 3. BUTON ETKİLEŞİMİ (ÇİFT ROL EKLEME + KAYITSIZ ROLÜ ALMA)
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-
-    const [aksiyon, rolTuru, hedefId, ...isimParcalari] = interaction.customId.split('_');
-    if (aksiyon !== 'kayit') return;
-
-    if (!interaction.member.roles.cache.has(KAYIT_YETKILI_ROL_ID)) {
-        return interaction.reply({ content: '❌ Bu butonla sadece Kayıt Yetkilileri etkileşime girebilir.', ephemeral: true });
-    }
-
-    const hedefUye = await interaction.guild.members.fetch(hedefId).catch(() => null);
-    const yeniIsim = isimParcalari.join(' ');
-
-    if (!hedefUye) {
-        return interaction.reply({ content: '❌ Kayıt edilmek istenen kullanıcı sunucudan ayrılmış!', ephemeral: true });
-    }
-
-    const verilecekAnaRolId = ROLLER[rolTuru];
-
+  // 3. !durum - Genel Sunucu Kişilik ve Bilgi Özeti
+  if (command === 'durum') {
     try {
-        // 1. İsim Değiştirme
-        await hedefUye.setNickname(yeniIsim);
+      const res = await axios.get(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
+      const isOnline = res.data.online;
 
-        // 2. ÇİFT ROL VERME (Tek pakette 2 Rol Verilir)
-        await hedefUye.roles.add([verilecekAnaRolId, KAYITLI_UYE_ROL_ID]);
+      const embed = new EmbedBuilder()
+        .setTitle('📊 Sunucu Bilgileri')
+        .setColor(isOnline ? '#00FF00' : '#FF0000')
+        .addFields(
+          { name: 'IP Adresi', value: `\`${SERVER_IP}\``, inline: false },
+          { name: 'Durum', value: isOnline ? '🟢 Aktif / Açık' : '🔴 Kapalı', inline: true },
+          { name: 'Sunucu Kişilik', value: isOnline ? `\`${res.data.players.online}/${res.data.players.max}\`` : '`0/0`', inline: true }
+        )
+        .setTimestamp();
 
-        // 3. Kayıtsız Rolünü Kaldırma
-        if (hedefUye.roles.cache.has(KAYITSIZ_ROL_ID)) {
-            await hedefUye.roles.remove(KAYITSIZ_ROL_ID);
-        }
-
-        // 4. Yetkili Kayıt Sayısını Güncelle
-        const yetkiliId = interaction.user.id;
-        kayitVerileri[yetkiliId] = (kayitVerileri[yetkiliId] || 0) + 1;
-
-        // 5. Onay Ekranı
-        const basariEmbed = new EmbedBuilder()
-            .setColor('#57F287')
-            .setAuthor({ name: 'Diamond League — Kayıt Tamamlandı', iconURL: interaction.guild.iconURL() })
-            .setTitle('⚡ Kayıt İşlemi Başarılı!')
-            .setDescription(`
-👤 **Kayıt Yapılan:** ${hedefUye} (\`${hedefUye.user.tag}\`)
-✍️ **Yeni İsim:** \`${yeniIsim}\`
-
-🎖️ **Verilen Roller (2 Adet):**
-> • <@&${verilecekAnaRolId}> (${ROL_ISIMLERI[rolTuru]})
-> • <@&${KAYITLI_UYE_ROL_ID}> (Kayıtlı Üye)
-
-🗑️ **Alınan Rol:** <@&${KAYITSIZ_ROL_ID}>
-📊 **Yetkili Toplam Kaydı:** \`${kayitVerileri[yetkiliId]}\`
-            `)
-            .setThumbnail(hedefUye.user.displayAvatarURL({ dynamic: true }))
-            .setFooter({ text: `Onaylayan Yetkili: ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-            .setTimestamp();
-
-        await interaction.update({
-            embeds: [basariEmbed],
-            components: []
-        });
-
-    } catch (err) {
-        console.error(err);
-        await interaction.reply({ 
-            content: '❌ **Yetki Hatası!** Botun kendi rolünü sunucu ayarlarında hem verilecek 2 rolün hem de yetkililerin **üstüne** taşıdığınızdan emin olun.', 
-            ephemeral: true 
-        });
+      return message.channel.send({ embeds: [embed] });
+    } catch {
+      return message.channel.send('Durum bilgisi okunamadı.');
     }
+  }
 });
 
-client.login(process.env.TOKEN);
-            
+client.login(process.env.DISCORD_TOKEN);
