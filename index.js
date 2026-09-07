@@ -1,4 +1,12 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { 
+  Client, 
+  GatewayIntentBits, 
+  EmbedBuilder, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle, 
+  PermissionFlagsBits 
+} = require('discord.js');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -17,43 +25,72 @@ const SERVER_IP = process.env.MC_SERVER_IP || '33numara.exaroton.me';
 const LOG_CHANNEL_ID = '1546447890606596096';
 const SIKAYET_CHANNEL_ID = '1546450907770658876';
 
+// Sistem Durum Değişkenleri
+let isLogsActive = true; 
 let previousPlayers = [];
+let wasServerOnline = null;
 
 client.once('ready', () => {
-  console.log(`${client.user.tag} aktif! Log ve komut sistemi hazır.`);
+  console.log(`${client.user.tag} aktif! Log ve Şikayet altyapısı hazır.`);
 
-  // Giriş/Çıkış ve Oyuncu İzleme Döngüsü (30 Saniyede Bir)
+  // Otomatik Log İzleme Döngüsü (30 Saniyede Bir)
   setInterval(async () => {
+    if (!isLogsActive) return; // .logskapat yapıldıysa log atmaz
+
     try {
       const res = await axios.get(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
       const logChannel = await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
 
-      if (res.data.online && logChannel) {
-        const currentPlayers = res.data.players.list || [];
-        const currentTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-2-digit', minute: '2-2-digit' });
+      if (!logChannel) return;
 
-        // Giriş Yapanlar
+      const currentTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-2-digit', minute: '2-2-digit' });
+      const isOnline = res.data.online;
+
+      // 1. Sunucu Açıldı / Kapandı Logu
+      if (wasServerOnline !== null && wasServerOnline !== isOnline) {
+        if (isOnline) {
+          const embed = new EmbedBuilder()
+            .setTitle('🟢 Sunucu Açıldı')
+            .setColor('#55FF55')
+            .setDescription(`\`${SERVER_IP}\` sunucusu aktifleşti! Oyuncular katılabilir.`)
+            .setTimestamp();
+          logChannel.send({ embeds: [embed] });
+        } else {
+          const embed = new EmbedBuilder()
+            .setTitle('🔴 Sunucu Kapandı')
+            .setColor('#FF5555')
+            .setDescription(`\`${SERVER_IP}\` sunucusu kapandı veya bakıma alındı.`)
+            .setTimestamp();
+          logChannel.send({ embeds: [embed] });
+        }
+      }
+      wasServerOnline = isOnline;
+
+      if (isOnline) {
+        const currentPlayers = res.data.players.list || [];
+
+        // 2. Oyuncu Giriş Logu
         const joined = currentPlayers.filter(p => !previousPlayers.includes(p));
         joined.forEach(player => {
           const embed = new EmbedBuilder()
-            .setTitle('📥 Oyuncu Giriş Yaptı')
+            .setTitle('📥 Oyuncu Katıldı')
             .setColor('#55FF55')
             .addFields(
-              { name: 'Oyuncu', value: `\`${player}\``, inline: true },
+              { name: 'Oyuncu İsim', value: `\`${player}\``, inline: true },
               { name: 'Saat', value: `\`${currentTime}\``, inline: true }
             )
             .setTimestamp();
           logChannel.send({ embeds: [embed] });
         });
 
-        // Çıkış Yapanlar
+        // 3. Oyuncu Çıkış Logu
         const left = previousPlayers.filter(p => !currentPlayers.includes(p));
         left.forEach(player => {
           const embed = new EmbedBuilder()
             .setTitle('📤 Oyuncu Ayrıldı')
             .setColor('#FF5555')
             .addFields(
-              { name: 'Oyuncu', value: `\`${player}\``, inline: true },
+              { name: 'Oyuncu İsim', value: `\`${player}\``, inline: true },
               { name: 'Saat', value: `\`${currentTime}\``, inline: true }
             )
             .setTimestamp();
@@ -63,10 +100,11 @@ client.once('ready', () => {
         previousPlayers = currentPlayers;
         client.user.setActivity(`🟢 ${res.data.players.online}/${res.data.players.max} Oyuncu`);
       } else {
+        previousPlayers = [];
         client.user.setActivity('🔴 Sunucu Kapalı');
       }
     } catch (err) {
-      console.error('Log tarama hatası:', err.message);
+      console.error('Log izleme hatası:', err.message);
     }
   }, 30000);
 });
@@ -77,115 +115,136 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // 1. .ip - Sunucu IP Adresi
+  // Yalnızca "Sunucuyu Yönet" (Manage Guild) yetkisi olanların kullanabileceği komut denetimi
+  const hasManageServer = message.member && message.member.permissions.has(PermissionFlagsBits.ManageGuild);
+
+  // 1. .logsac - Otomatik logları açar
+  if (command === 'logsac') {
+    if (!hasManageServer) return message.reply('❌ Bu komutu kullanmak için **Sunucuyu Yönet** yetkisine sahip olmalısınız.');
+    isLogsActive = true;
+    return message.reply('✅ Otomatik log gönderimi **AÇILDI**.');
+  }
+
+  // 2. .logskapat - Otomatik logları kapatır
+  if (command === 'logskapat') {
+    if (!hasManageServer) return message.reply('❌ Bu komutu kullanmak için **Sunucuyu Yönet** yetkisine sahip olmalısınız.');
+    isLogsActive = false;
+    return message.reply('🛑 Otomatik log gönderimi **KAPATILDI**.');
+  }
+
+  // 3. .sikayetvar / .sikayet - Yetkili Onaylı (Evet/Hayır) Şikayet Sistemi
+  if (command === 'sikayet' || command === 'sikayetvar') {
+    const sikayetMetni = args.join(' ');
+    if (!sikayetMetni) {
+      return message.reply('Lütfen şikayet detayını yazın! (Örn: `.sikayetvar OyuncuAdi hile/kill aura kullanıyor`)');
+    }
+
+    const sikayetKanal = await client.channels.fetch(SIKAYET_CHANNEL_ID).catch(() => null);
+    if (!sikayetKanal) return message.reply('Şikayet kanalı bulunamadı.');
+
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ Yeni Şikayet / Hile Bildirimi')
+      .setColor('#FFAA00')
+      .addFields(
+        { name: 'Bildiren Üye', value: `${message.author}`, inline: true },
+        { name: 'Saat', value: `\`${new Date().toLocaleTimeString('tr-TR', { hour: '2-2-digit', minute: '2-2-digit' })}\``, inline: true },
+        { name: 'Şikayet / Hile Detayı', value: sikayetMetni, inline: false },
+        { name: 'Durum', value: '⏳ Yetkili Onayı Bekleniyor', inline: false }
+      )
+      .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('sikayet_evet')
+        .setLabel('Evet (İşleme Al)')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('sikayet_hayir')
+        .setLabel('Hayır (Reddet)')
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    await sikayetKanal.send({ embeds: [embed], components: [row] });
+    return message.reply('Şikayetiniz yetkili onayına gönderildi.');
+  }
+
+  // 4. .ip
   if (command === 'ip') {
     const embed = new EmbedBuilder()
       .setTitle('🎮 Minecraft Sunucu IP')
       .setColor('#55FF55')
-      .addFields(
-        { name: 'Sunucu IP', value: `\`${SERVER_IP}\``, inline: false },
-        { name: 'Sürüm', value: '`1.21.1`', inline: true }
-      )
+      .addFields({ name: 'Sunucu IP', value: `\`${SERVER_IP}\``, inline: false })
       .setFooter({ text: 'İyi oyunlar!' });
-
     return message.channel.send({ embeds: [embed] });
   }
 
-  // 2. .aktiflik / .durum - Sunucu Açık/Kapalı ve Doluluk Durumu
-  if (command === 'aktiflik' || command === 'durum') {
-    try {
-      const res = await axios.get(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
-      const isOnline = res.data.online;
-
-      const embed = new EmbedBuilder()
-        .setTitle('📊 Sunucu Aktiflik Durumu')
-        .setColor(isOnline ? '#55FF55' : '#FF5555')
-        .addFields(
-          { name: 'Sunucu IP', value: `\`${SERVER_IP}\``, inline: false },
-          { name: 'Durum', value: isOnline ? '🟢 Aktif / Çevrimiçi' : '🔴 Kapalı / Çevrimdışı', inline: true },
-          { name: 'Kişilik (Doluluk)', value: isOnline ? `\`${res.data.players.online}/${res.data.players.max}\`` : '`0/0`', inline: true }
-        )
-        .setTimestamp();
-
-      return message.channel.send({ embeds: [embed] });
-    } catch {
-      return message.channel.send('Aktiflik durumu sorgulanırken hata oluştu.');
-    }
-  }
-
-  // 3. .oyuncular / .logs - Oyundaki İsimler ve Sayı
+  // 5. .oyuncular / .logs
   if (command === 'oyuncular' || command === 'logs') {
     try {
       const res = await axios.get(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
-      const currentTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-2-digit', minute: '2-2-digit' });
-
-      if (!res.data.online) {
-        return message.channel.send('🔴 Sunucu şu anda kapalı.');
-      }
+      if (!res.data.online) return message.channel.send('🔴 Sunucu kapalı.');
 
       const players = res.data.players.list || [];
       const embed = new EmbedBuilder()
         .setTitle('👥 Aktif Oyuncu Listesi')
         .setColor('#00AAAA')
         .addFields(
-          { name: 'Sorgu Saati', value: `\`${currentTime}\``, inline: true },
           { name: 'Kişilik', value: `\`${res.data.players.online}/${res.data.players.max}\``, inline: true },
-          { 
-            name: 'Oyundaki İsimler', 
-            value: players.length > 0 ? players.map(p => `• ${p}`).join('\n') : 'Şu anda oyunda kimse yok.' 
-          }
+          { name: 'Oyundaki İsimler', value: players.length > 0 ? players.map(p => `• ${p}`).join('\n') : 'Kimse yok.' }
         )
         .setTimestamp();
 
       return message.channel.send({ embeds: [embed] });
     } catch {
-      return message.channel.send('Oyuncu bilgileri alınamadı.');
+      return message.channel.send('Oyuncu bilgisi alınamadı.');
     }
   }
+});
 
-  // 4. .sikayetvar / .sikayet - Şikayet Bildirimi
-  if (command === 'sikayet' || command === 'sikayetvar') {
-    const sikayetMetni = args.join(' ');
-    if (!sikayetMetni) {
-      return message.reply('Lütfen şikayetinizi belirtin! (Örn: `.sikayetvar OyuncuName hile kullanıyor`)');
-    }
+// Buton Etkileşim Yönetimi (Evet / Hayır Seçenekleri)
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
 
-    const sikayetKanal = await client.channels.fetch(SIKAYET_CHANNEL_ID).catch(() => null);
-    if (!sikayetKanal) {
-      return message.reply('Şikayet kanalı bulunamadı.');
-    }
-
-    const embed = new EmbedBuilder()
-      .setTitle('⚠️ Yeni Hile / Oyuncu Şikayeti')
-      .setColor('#FFAA00')
-      .addFields(
-        { name: 'Bildiren', value: `${message.author}`, inline: true },
-        { name: 'Saat', value: `\`${new Date().toLocaleTimeString('tr-TR', { hour: '2-2-digit', minute: '2-2-digit' })}\``, inline: true },
-        { name: 'Şikayet Detayı', value: sikayetMetni, inline: false }
-      )
-      .setTimestamp();
-
-    await sikayetKanal.send({ embeds: [embed] });
-    return message.reply('Şikayetiniz yetkililere iletildi.');
+  // Yalnızca "Sunucuyu Yönet" yetkisi olan yetkililer Evet/Hayır kararı verebilir
+  if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    return interaction.reply({ content: '❌ Bu işlemi yalnızca **Sunucuyu Yönet** yetkisine sahip yetkililer onaylayabilir.', ephemeral: true });
   }
 
-  // 5. .yardim - Güncel Komut Listesi
-  if (command === 'yardim' || command === 'help') {
-    const embed = new EmbedBuilder()
-      .setTitle('📜 Bot Komut Menüsü')
-      .setColor('#3498DB')
-      .setDescription('Kullanabileceğiniz tüm komutlar aşağıda listelenmiştir:')
-      .addFields(
-        { name: '`.ip`', value: 'Sunucunun IP adresini gösterir.', inline: false },
-        { name: '`.aktiflik`', value: 'Sunucunun açık/kapalı durumunu ve toplam kapasitesini gösterir.', inline: false },
-        { name: '`.oyuncular` (veya `.logs`)', value: 'Oyunda aktif olan kişilerin isimlerini ve saatini gösterir.', inline: false },
-        { name: '`.sikayetvar [mesaj]`', value: 'Hile veya oyuncu şikayetlerinizi yetkililere iletir.', inline: false },
-        { name: '`.yardim`', value: 'Bu yardım menüsünü görüntüler.', inline: false }
-      )
-      .setTimestamp();
+  const oldEmbed = interaction.message.embeds[0];
+  if (!oldEmbed) return;
 
-    return message.channel.send({ embeds: [embed] });
+  const editedEmbed = EmbedBuilder.from(oldEmbed);
+
+  if (interaction.customId === 'sikayet_evet') {
+    editedEmbed
+      .setColor('#00FF00')
+      .spliceFields(3, 1, { name: 'Durum', value: `✅ **Onaylandı (İşleme Alındı)** - Yetkili: ${interaction.user}`, inline: false });
+
+    // Şikayet onaylandığında Otomatik Log kanalına da aktarma yapılır
+    const logChannel = await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setTitle('🚨 Şikayet Loglara İşlendi')
+        .setColor('#FF5555')
+        .addFields(
+          { name: 'Detay', value: oldEmbed.fields[2].value },
+          { name: 'Onaylayan Yetkili', value: `${interaction.user}` }
+        )
+        .setTimestamp();
+      logChannel.send({ embeds: [logEmbed] });
+    }
+
+    await interaction.update({ embeds: [editedEmbed], components: [] });
+  }
+
+  if (interaction.customId === 'sikayet_hayir') {
+    editedEmbed
+      .setColor('#FF0000')
+      .spliceFields(3, 1, { name: 'Durum', value: `❌ **Reddedildi** - Yetkili: ${interaction.user}`, inline: false });
+
+    await interaction.update({ embeds: [editedEmbed], components: [] });
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
+  
